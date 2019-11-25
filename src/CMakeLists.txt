@@ -3,7 +3,7 @@
 #
 cmake_minimum_required(VERSION 3.1)
 
-project(argos3-dta-loopfunction)
+project(argos3-dta CXX)
 
 #
 # Set the path additional cmake files must be searched for
@@ -23,23 +23,30 @@ include_directories(BEFORE ${CMAKE_SOURCE_DIR})
 #
 # Compile loop function
 #
-add_subdirectory(loop-function)
+add_subdirectory(loop_functions)
 
 #
-# Create .gdbinit file for GDB support
-# It is placed in the same directory as the argos3 executable
+# Configure examples
 #
 configure_file(
-  ${CMAKE_SOURCE_DIR}/scripts/gdbinit.in
-  ${CMAKE_BINARY_DIR}/core/.gdbinit
-  @ONLY)
+  ${CMAKE_SOURCE_DIR}/experiment/abstract.argos.in
+  ${CMAKE_BINARY_DIR}/experiment/abstract.argos)
 
-#
-# Create setup_envsh file for bash support
-# It is placed in the base build directory
-#
 configure_file(
-  ${CMAKE_SOURCE_DIR}/scripts/setup_env.sh.in
-  ${CMAKE_BINARY_DIR}/setup_env.sh
-  @ONLY)
+  ${CMAKE_SOURCE_DIR}/experiment/pipuck.lua
+  ${CMAKE_BINARY_DIR}/experiment/pipuck.lua
+  COPYONLY)
 
+configure_file(
+  ${CMAKE_SOURCE_DIR}/experiment/srocs.argos.in
+  ${CMAKE_BINARY_DIR}/experiment/srocs.argos)
+
+configure_file(
+  ${CMAKE_SOURCE_DIR}/experiment/builderbot.lua
+  ${CMAKE_BINARY_DIR}/experiment/builderbot.lua
+  COPYONLY)
+
+configure_file(
+  ${CMAKE_SOURCE_DIR}/experiment/block.lua
+  ${CMAKE_BINARY_DIR}/experiment/block.lua
+  COPYONLY)

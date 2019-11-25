@@ -1,4 +1,6 @@
 --[[ This function is executed every time you press the 'execute' button ]]
+network_id = 5
+
 function init()
    reset()
 end
@@ -6,15 +8,7 @@ end
 --[[ This function is executed at each time step
      It must contain the logic of your controller ]]
 function step()
-   if robot.debug ~= nil then
-      robot.debug.draw("arrow(red)(0.125,0,0.05)(0.25,0,0.05)")
-      robot.debug.draw("arrow(green)(0,0.125,0.05)(0,0.25,0.05)")
-      robot.debug.draw("arrow(blue)(0,0,0.25)(0,0,0.50)")
-      robot.debug.draw("ring(yellow)(0.5,0,0)(0.25)")
-   end
-   if robot.lift_system.state == "inactive" then
-      robot.lift_system.set_position(0.07);
-   end
+   robot.wifi.tx_data({network_id, robot.id, {"hello"}})
 end
 
 --[[ This function is executed every time you press the 'reset'
@@ -23,10 +17,7 @@ end
      called. The state of sensors and actuators is reset
      automatically by ARGoS. ]]
 function reset()
-   robot.differential_drive.set_target_velocity(-0.0,-0.0);
-   robot.lift_system.calibrate();
 end
-
 
 
 --[[ This function is executed only once, when the robot is removed

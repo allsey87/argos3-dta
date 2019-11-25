@@ -20,7 +20,7 @@
           calibration="src/calibration/builderbot_differential_drive.xml" />
         <builderbot_lift_system implementation="default" />
         <builderbot_nfc implementation="default" />
-        <builderbot_wifi implementation="default" />
+        <wifi implementation="default" />
       </actuators>
       <sensors>
         <builderbot_camera_system implementation="default"
@@ -34,9 +34,9 @@
         <builderbot_electromagnet_system implementation="default" />
         <builderbot_lift_system implementation="default" />
         <builderbot_nfc implementation="default" show_rays="false" />
-        <builderbot_wifi implementation="default" />
+        <wifi implementation="default" show_rays="false" />
       </sensors>
-      <params script="builderbot.lua" />
+      <params script="@CMAKE_BINARY_DIR@/experiment/builderbot.lua" />
     </lua_controller>
 
     <lua_controller id="block">
@@ -47,16 +47,18 @@
       <sensors>
         <radios implementation="default" show_rays="false"/>
       </sensors>
-      <params script="block.lua" />
+      <params script="@CMAKE_BINARY_DIR@/experiment/block.lua" />
     </lua_controller>
   </controllers>
 
   <!-- ****************** -->
   <!-- * Loop functions * -->
   <!-- ****************** -->
-  <loop_functions library="/home/mallwright/Workspace/argos3-loop-function/build/loop-function/libsrocs_dta_loop_functions"
-                  label="srocs_dta_loop_functions"
-                  site_min_corner="-0.5,-0.5" site_max_corner="0.5,0.5" />
+  <loop_functions library="@CMAKE_BINARY_DIR@/loop_functions/libdta_srocs_loop_functions"
+                  label="dta_srocs_loop_functions"
+                  construction_site_min_corner="-0.5,-0.5"
+                  construction_site_max_corner="0.5,0.5"
+                  blocks_in_foraging_area="10" />
 
   <!-- *********************** -->
   <!-- * Arena configuration * -->
