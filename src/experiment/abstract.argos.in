@@ -94,7 +94,7 @@
   <!-- ****************** -->
 
   <visualization>
-    <qt-opengl lua_editor="true">
+    <qt-opengl lua_editor="false">
       <camera>
         <placement idx="0" position="1.5,1.5,5" look_at="1.5,1.5,0.125" up="1,0,0" lens_focal_length="40" />
         <placement idx="1" position=" 1.5,-4.5,2" look_at="1.5,1.5,0.5" lens_focal_length="57" />

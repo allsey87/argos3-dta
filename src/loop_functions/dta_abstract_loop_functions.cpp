@@ -91,28 +91,22 @@ namespace argos {
             m_cSpace.GetFloorEntity().SetChanged();
          }
       }
-      /* remove robots that want to switch to the foraging task */
-      const std::vector<CPiPuckEntity*>::iterator itEraseStartRange =
+      /* find the robots that want to switch to the foraging task */
+      std::vector<CPiPuckEntity*>::iterator itEraseStartRange =
          std::remove_if(std::begin(m_vecRobots),
                         std::end(m_vecRobots),
                         [this] (CPiPuckEntity* pc_robot) {
             const std::string& strLoopFunctionsBuffer =
                pc_robot->GetDebugEntity().GetBuffer("loop_functions");
             if(!strLoopFunctionsBuffer.empty()) {
-               std::cerr << "removing " << pc_robot->GetId() << std::endl;
+               /* remove robot from the space */
                CallEntityOperation<CSpaceOperationRemoveEntity, CSpace, void>(m_cSpace, *pc_robot);
                return true;
             }
             return false;
          });
+      /* erase robots from the collection */
       m_vecRobots.erase(itEraseStartRange, std::end(m_vecRobots));
-
-      /* show what is left*/
-      std::cerr << "m_vecRobots: ";
-      for(CPiPuckEntity* pc_robot : m_vecRobots) {
-         std::cerr << pc_robot->GetId() << ", ";
-      }
-      std::cerr << std::endl;
    }
 
    /****************************************/
