@@ -1,27 +1,43 @@
---[[ This function is executed every time you press the 'execute' button ]]
-network_id = 5
+luabt = require('luabt')
 
 function init()
-   reset()
+   behavior = luabt.create({
+      type = "selector",
+      children = {{
+         type = "sequence",
+         children = {
+            function() return false, closest_obstacle == "left" or closest_obstacle == "front" end,
+            function() robot.differential_drive.set_target_velocity(0.05, 0.05) return true end,
+         }}, {
+         type = "sequence",
+         children = {
+            function() return false, closest_obstacle == "right" end,
+            function() robot.differential_drive.set_target_velocity(-0.05, -0.05) return true end,
+
+         }},
+         function() robot.differential_drive.set_target_velocity(0.05, -0.05) return true end,
+      }
+   })
 end
 
---[[ This function is executed at each time step
-     It must contain the logic of your controller ]]
 function step()
-   robot.wifi.tx_data({network_id, robot.id, {"hello"}})
+   -- process obstacles
+   closest_obstacle = nil
+   local obstacles = {
+      left = robot.rangefinders[8].reading,
+      front = robot.rangefinders[1].reading,
+      right = robot.rangefinders[2].reading,
+   }
+   for obstacle, distance in pairs(obstacles) do
+      if distance < 0.1 then
+         if closest_obstacle == nil or distance < obstacles[closest_obstacle] then
+            closest_obstacle = obstacle
+         end
+      end
+   end
+   -- tick behavior tree
+   behavior()
 end
 
---[[ This function is executed every time you press the 'reset'
-     button in the GUI. It is supposed to restore the state
-     of the controller to whatever it was right after init() was
-     called. The state of sensors and actuators is reset
-     automatically by ARGoS. ]]
-function reset()
-end
-
-
---[[ This function is executed only once, when the robot is removed
-     from the simulation ]]
-function destroy()
-   -- put your code here
-end
+function reset() end
+function destroy() end

@@ -29,6 +29,11 @@ add_subdirectory(loop_functions)
 # Configure examples
 #
 configure_file(
+  ${CMAKE_SOURCE_DIR}/experiment/luabt.lua
+  ${CMAKE_BINARY_DIR}/experiment/luabt.lua
+  COPYONLY)
+
+configure_file(
   ${CMAKE_SOURCE_DIR}/experiment/abstract.argos.in
   ${CMAKE_BINARY_DIR}/experiment/abstract.argos)
 
