@@ -1,6 +1,7 @@
 #include "dta_abstract_loop_functions.h"
 
 #include <argos3/core/simulator/entity/floor_entity.h>
+#include <argos3/plugins/simulator/entities/debug_entity.h>
 #include <argos3/plugins/robots/pi-puck/simulator/pipuck_entity.h>
 
 namespace argos {
@@ -9,31 +10,21 @@ namespace argos {
    /****************************************/
 
    CDTAAbstractLoopFunctions::CDTAAbstractLoopFunctions() :
-      m_cSpace(CSimulator::GetInstance().GetSpace()) {}
+      m_cSpace(CSimulator::GetInstance().GetSpace()),
+      m_pcRNG(CRandom::CreateRNG("argos")),
+      m_unStepsUntilNextCellOccupied(0) {}
 
    /****************************************/
    /****************************************/
 
    void CDTAAbstractLoopFunctions::Init(TConfigurationNode& t_tree) {
+      /* parse the layout */
       std::string strLayout;
       GetNodeAttribute(t_tree, "layout", strLayout);
-      ParseValues<SInt32>(strLayout, 2, m_arrLayout.data(), ',');
-      
-
-
-      /* parse loop function configuration */
-      //GetNodeAttribute(t_tree, "blocks_in_foraging_area", m_unTargetBlocksInForagingArea);
-      /* calculate the corners of the arena */
-
-      /*
-      const CVector3& cArenaSize();
-      const CVector3& cArenaCenter(m_cSpace.GetArenaCenter());    
-      m_cArenaRangeX.Set(cArenaCenter.GetX() - (cArenaSize.GetX() * 0.5) + 0.1,
-                         cArenaCenter.GetX() + (cArenaSize.GetX() * 0.5) - 0.1);
-      m_cArenaRangeY.Set(cArenaCenter.GetY() - (cArenaSize.GetY() * 0.5) + 0.1,
-                         cArenaCenter.GetY() + (cArenaSize.GetY() * 0.5) - 0.1);
-      */
-
+      ParseValues<UInt32>(strLayout, 2, m_arrLayout.data(), ',');
+      /* initialize vector of cells */
+      m_vecOccupiedCells.assign(m_arrLayout[0] * m_arrLayout[1], false);
+      m_cSpace.GetFloorEntity().SetChanged();
       /* create a map of the pi-puck robots */
       using TValueType = std::pair<const std::string, CAny>;
       for(const TValueType& t_robot : m_cSpace.GetEntitiesByType("pipuck")) {
@@ -44,63 +35,84 @@ namespace argos {
    /****************************************/
    /****************************************/
 
+   void CDTAAbstractLoopFunctions::Reset() {
+      m_vecOccupiedCells.clear();
+      m_cSpace.GetFloorEntity().SetChanged();
+   }
+
+   /****************************************/
+   /****************************************/
+
    CColor CDTAAbstractLoopFunctions::GetFloorColor(const CVector2& c_position) {
       const CVector3& cArenaSize = m_cSpace.GetArenaSize();
       /* convert c_position into cell coordinates */
-      SInt32 nX = 
-         static_cast<SInt32>(c_position.GetX() * m_arrLayout.at(0) / cArenaSize.GetX());
-      SInt32 nY =
-         static_cast<SInt32>(c_position.GetY() * m_arrLayout.at(1) / cArenaSize.GetY());
-      /* check if the cell is occupied */
-      if(std::find_if(std::begin(m_vecOccupiedCells),
-                      std::end(m_vecOccupiedCells),
-                      [nX, nY] (const std::pair<SInt32, SInt32>& c_coords) {
-                         return ((nX == c_coords.first) && (nY == c_coords.second));
-                      }) != std::end(m_vecOccupiedCells)) {
-         /* cell is occupied */
-         return CColor::GRAY50;
-      }
-      else {
-         /* cell is unoccupied */
-         return CColor::GRAY80;
-      }
+      UInt32 unX = static_cast<UInt32>(c_position.GetX() * m_arrLayout.at(0) / cArenaSize.GetX());
+      UInt32 unY = static_cast<UInt32>(c_position.GetY() * m_arrLayout.at(1) / cArenaSize.GetY());
+      /* shade cell if occupied */
+      return m_vecOccupiedCells.at(unX + m_arrLayout[0] * unY) ? CColor::GRAY50 : CColor::GRAY80;
    }
 
    /****************************************/
    /****************************************/
 
    void CDTAAbstractLoopFunctions::PostStep() {
+      /* handle cell shading */
+      if(m_unStepsUntilNextCellOccupied == 0) {
+         CRange<UInt32> cXRange(0, m_arrLayout[0]);
+         CRange<UInt32> cYRange(0, m_arrLayout[1]);
+         UInt32 unOccupiedCells =
+            std::count(std::begin(m_vecOccupiedCells), std::end(m_vecOccupiedCells), true);
+         if(unOccupiedCells < m_arrLayout[0] * m_arrLayout[1]) {
+            for(;;) {
+               UInt32 unX = m_pcRNG->Uniform(cXRange);
+               UInt32 unY = m_pcRNG->Uniform(cYRange);
+               if(!m_vecOccupiedCells.at(unX + m_arrLayout[0] * unY)) {
+                  m_vecOccupiedCells[unX + m_arrLayout[0] * unY] = true;
+                  m_cSpace.GetFloorEntity().SetChanged();
+                  /* TODO set time delay for next cell to be shaded */
+                  m_unStepsUntilNextCellOccupied = 0;
+                  break;
+               }
+            }
+         }
+      }
+      else {
+         m_unStepsUntilNextCellOccupied -= 1;
+      }
+      /* handle cell unshading */
       const CVector3& cArenaSize = m_cSpace.GetArenaSize();
-      std::vector<std::pair<SInt32, SInt32> > m_vecPrevOccupiedCells;
-      m_vecPrevOccupiedCells.swap(m_vecOccupiedCells);
-      /* loop over all the robots */
       for(CPiPuckEntity* pc_robot : m_vecRobots) {
-         SAnchor& sAnchor = pc_robot->GetEmbodiedEntity().GetOriginAnchor();
-         /* calculate cell positions for the robots */
-         SInt32 nX = 
-            static_cast<SInt32>(std::floor(sAnchor.Position.GetX() * m_arrLayout.at(0) / cArenaSize.GetX()));
-         SInt32 nY =
-            static_cast<SInt32>(std::floor(sAnchor.Position.GetY() * m_arrLayout.at(1) / cArenaSize.GetY()));
-         m_vecOccupiedCells.emplace_back(nX, nY);
-         //LOG << pc_robot->GetId() << ": " << static_cast<int>(nX) << ", " << static_cast<int>(nY) << std::endl;
+         const CVector3& cPosition =
+            pc_robot->GetEmbodiedEntity().GetOriginAnchor().Position;
+         UInt32 unX = static_cast<UInt32>(cPosition.GetX() * m_arrLayout.at(0) / cArenaSize.GetX());
+         UInt32 unY = static_cast<UInt32>(cPosition.GetY() * m_arrLayout.at(1) / cArenaSize.GetY());
+         if(m_vecOccupiedCells.at(unX + m_arrLayout[0] * unY)) {
+            m_vecOccupiedCells[unX + m_arrLayout[0] * unY] = false;
+            m_cSpace.GetFloorEntity().SetChanged();
+         }
       }
-      std::sort(std::begin(m_vecOccupiedCells),
-                std::end(m_vecOccupiedCells),
-                [] (const std::pair<SInt32, SInt32> c_lhs,
-                    const std::pair<SInt32, SInt32> c_rhs) {
-         return (c_lhs.first == c_rhs.first) ? 
-                (c_lhs.second < c_rhs.second) :
-                (c_lhs.first < c_rhs.first);
-      });
+      /* remove robots that want to switch to the foraging task */
+      const std::vector<CPiPuckEntity*>::iterator itEraseStartRange =
+         std::remove_if(std::begin(m_vecRobots),
+                        std::end(m_vecRobots),
+                        [this] (CPiPuckEntity* pc_robot) {
+            const std::string& strLoopFunctionsBuffer =
+               pc_robot->GetDebugEntity().GetBuffer("loop_functions");
+            if(!strLoopFunctionsBuffer.empty()) {
+               std::cerr << "removing " << pc_robot->GetId() << std::endl;
+               CallEntityOperation<CSpaceOperationRemoveEntity, CSpace, void>(m_cSpace, *pc_robot);
+               return true;
+            }
+            return false;
+         });
+      m_vecRobots.erase(itEraseStartRange, std::end(m_vecRobots));
 
-      if(!std::equal(std::begin(m_vecOccupiedCells),
-                     std::end(m_vecOccupiedCells),
-                     std::begin(m_vecPrevOccupiedCells),
-                     std::end(m_vecPrevOccupiedCells))) {
-         /* the list of cells occupied by the robots has changed, update the floor */
-         std::cerr << "!" << std::endl;
-         m_cSpace.GetFloorEntity().SetChanged();
+      /* show what is left*/
+      std::cerr << "m_vecRobots: ";
+      for(CPiPuckEntity* pc_robot : m_vecRobots) {
+         std::cerr << pc_robot->GetId() << ", ";
       }
+      std::cerr << std::endl;
    }
 
    /****************************************/

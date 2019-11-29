@@ -35,8 +35,12 @@ function step()
          end
       end
    end
-   -- tick behavior tree
+   -- tick obstacle avoidance behavior tree
    behavior()
+   -- tell the loop functions we want to switch to foraging
+   if robot.ground.center.reading < 0.75 then
+      robot.debug.loop_functions("foraging");
+   end
 end
 
 function reset() end

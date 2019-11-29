@@ -16,11 +16,16 @@
     <lua_controller id="pipuck">
       <actuators>
         <pipuck_differential_drive implementation="default" />
+        <debug implementation="default">
+          <interface id="loop_functions" />
+          <interface id="draw" />
+        </debug>
         <wifi implementation="default" />
       </actuators>
       <sensors>
-        <pipuck_rangefinders implementation="default" show_rays="false" />
+        <pipuck_ground implementation="default" show_rays="false" />
         <pipuck_differential_drive implementation="default" />
+        <pipuck_rangefinders implementation="default" show_rays="false" />
         <wifi implementation="default" show_rays="false" />
       </sensors>
       <params script="@CMAKE_BINARY_DIR@/experiment/pipuck.lua" />
@@ -33,7 +38,7 @@
   <!-- ****************** -->
   <loop_functions library="@CMAKE_BINARY_DIR@/loop_functions/libdta_abstract_loop_functions"
                   label="dta_abstract_loop_functions"
-                  layout="50,50" />
+                  layout="25,25" />
 
   <!-- *********************** -->
   <!-- * Arena configuration * -->
