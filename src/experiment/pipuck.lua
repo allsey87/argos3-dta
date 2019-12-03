@@ -27,9 +27,9 @@ function step()
    -- process obstacles
    closest_obstacle = nil
    local obstacles = {
-      left = robot.rangefinders[8].reading,
+      left = robot.rangefinders[2].reading,
       front = robot.rangefinders[1].reading,
-      right = robot.rangefinders[2].reading,
+      right = robot.rangefinders[12].reading,
    }
    for obstacle, distance in pairs(obstacles) do
       if distance < 0.1 then
