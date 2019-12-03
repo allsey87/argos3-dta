@@ -1,6 +1,9 @@
 luabt = require('luabt')
 
 function init()
+   -- ground accumator
+   ground_accumulator = 0
+   -- obstacle avoidance behavior
    behavior = luabt.create({
       type = "selector",
       children = {{
@@ -39,8 +42,13 @@ function step()
    behavior()
    -- tell the loop functions we want to switch to foraging
    if robot.ground.center.reading < 0.75 then
-      robot.debug.loop_functions("foraging");
+      ground_accumulator = ground_accumulator + 1
+      if ground_accumulator > 10 then
+         robot.debug.loop_functions("foraging");
+      end
    end
+   -- send robot id and value in the ground accumlator
+   robot.wifi.tx_data({robot.id, ground_accumulator})
 end
 
 function reset() end

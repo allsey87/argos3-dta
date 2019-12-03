@@ -18,6 +18,22 @@ namespace argos {
 
    public:
 
+      struct SPiPuck {
+         SPiPuck(const std::string& str_controller,
+                 const std::vector<std::string>& vec_can_send_to) :
+            Entity(nullptr),
+            StepsUntilReturnToConstructionTask(0),
+            Controller(str_controller),
+            CanSendTo(vec_can_send_to) {}
+         /* members */
+         CPiPuckEntity* Entity;
+         UInt32 StepsUntilReturnToConstructionTask;
+         std::string Controller;
+         std::vector<std::string> CanSendTo;
+      };
+
+   public:
+
       CDTAAbstractLoopFunctions();
 
       virtual ~CDTAAbstractLoopFunctions() {}
@@ -39,11 +55,13 @@ namespace argos {
 
       CRandom::CRNG* m_pcRNG;
 
-      UInt32 m_unStepsUntilNextCellOccupied;
+      UInt32 m_unStepsUntilShadeCell;
 
-      std::vector<bool> m_vecOccupiedCells;
+      std::vector<bool> m_vecCells;
 
       std::array<UInt32, 2> m_arrLayout;
+
+      std::map<std::string, SPiPuck> m_mapRobots;
 
       std::vector<CPiPuckEntity*> m_vecRobots;
 
