@@ -6,7 +6,7 @@
   <!-- ************************* -->
   <framework>
     <system threads="0" />
-    <experiment length="0" ticks_per_second="5" random_seed="12345" />
+    <experiment length="0" ticks_per_second="5" random_seed="0" />
   </framework>
   
   <!-- *************** -->
@@ -19,13 +19,13 @@
         <debug implementation="default">
           <interface id="loop_functions" />
         </debug>
-        <wifi implementation="default" />
+        <wifi implementation="dta_abstract" />
       </actuators>
       <sensors>
         <pipuck_ground implementation="default" show_rays="false" />
         <pipuck_differential_drive implementation="default" />
         <pipuck_rangefinders implementation="default" show_rays="true" />
-        <wifi implementation="default" show_rays="false" />
+        <wifi implementation="default" show_rays="true" />
       </sensors>
       <params script="@CMAKE_BINARY_DIR@/experiment/pipuck.lua" />
     </lua_controller>
@@ -71,9 +71,9 @@
   <!-- * Physics engines * -->
   <!-- ******************* -->
   <physics_engines>
-    <dynamics3d id="dyn3d" iterations="25" default_friction="10">
+    <dynamics3d id="dyn3d" iterations="25" default_friction="1">
       <gravity g="9.8" />
-      <floor friction="10" />
+      <floor friction="1" />
     </dynamics3d>
   </physics_engines>
 

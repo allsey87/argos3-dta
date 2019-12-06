@@ -9,8 +9,7 @@ namespace argos {
 #include <argos3/core/simulator/loop_functions.h>
 #include <argos3/core/utility/math/rng.h>
 
-//#include <argos3/core/utility/math/vector3.h>
-//#include <argos3/core/utility/math/range.h>
+#include <set>
 
 namespace argos {
 
@@ -20,16 +19,16 @@ namespace argos {
 
       struct SPiPuck {
          SPiPuck(const std::string& str_controller,
-                 const std::vector<std::string>& vec_can_send_to) :
+                 const std::set<std::string>& set_can_send_to) :
             Entity(nullptr),
             StepsUntilReturnToConstructionTask(0),
             Controller(str_controller),
-            CanSendTo(vec_can_send_to) {}
+            CanSendTo(set_can_send_to) {}
          /* members */
          CPiPuckEntity* Entity;
          UInt32 StepsUntilReturnToConstructionTask;
          std::string Controller;
-         std::vector<std::string> CanSendTo;
+         std::set<std::string> CanSendTo;
       };
 
    public:

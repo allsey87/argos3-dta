@@ -2,11 +2,74 @@
 
 #include <argos3/core/simulator/entity/floor_entity.h>
 #include <argos3/plugins/simulator/entities/debug_entity.h>
+#include <argos3/plugins/simulator/media/radio_medium.h>
+#include <argos3/plugins/robots/generic/simulator/wifi_default_actuator.h>
 #include <argos3/plugins/robots/pi-puck/simulator/pipuck_entity.h>
 
-#include <argos3/plugins/simulator/media/radio_medium.h>
-
 namespace argos {
+
+   class CDTAAbstractWifiActuator : public CWifiDefaultActuator {
+   public:
+      class CTxOperation : public CPositionalIndex<CRadioEntity>::COperation {
+      public:
+         CTxOperation(const CRadioEntity& c_tx_radio,
+                      const std::list<CByteArray>& lst_messages,
+                      const std::set<std::string>& set_can_send_to) :
+            m_cTxRadio(c_tx_radio),
+            m_lstMessages(lst_messages),
+            m_setCanSendTo(set_can_send_to) {}
+
+         virtual bool operator()(CRadioEntity& c_rx_radio) {
+            if(m_setCanSendTo.count(c_rx_radio.GetRootEntity().GetId()) != 0) {
+               const CVector3& cTxRadioPosition = m_cTxRadio.GetPosition();
+               for(const CByteArray& c_data : m_lstMessages) {
+                  c_rx_radio.ReceiveData(cTxRadioPosition, c_data);
+               }
+            }
+            return true;
+         }
+
+      private:
+         const CRadioEntity& m_cTxRadio;
+         const std::list<CByteArray>& m_lstMessages;
+         const std::set<std::string>& m_setCanSendTo;
+      };
+
+      /****************************************/
+      /****************************************/
+
+      virtual void Update() override {
+         if(!m_lstMessages.empty()) {
+            CTxOperation cTxOperation(*m_pcRadioEntity,
+                                      m_lstMessages,
+                                      m_setCanSendTo);
+            m_pcRadioEntity->GetMedium().GetIndex().ForAllEntities(cTxOperation);
+            m_lstMessages.clear();
+         }
+      }
+
+      /****************************************/
+      /****************************************/
+
+      void SetCanSendTo(const std::set<std::string>& set_can_send_to) {
+         m_setCanSendTo = set_can_send_to;
+      }
+
+   private:
+      std::set<std::string> m_setCanSendTo;
+   };
+
+   /****************************************/
+   /****************************************/
+
+   REGISTER_ACTUATOR(CDTAAbstractWifiActuator,
+                     "wifi", "dta_abstract",
+                     "Michael Allwright [allsey87@gmail.com]",
+                     "1.0",
+                     "An abstract wifi actuator for the DTA experiments.",
+                     "This actuator sends messages over wifi.",
+                     "Usable"
+   );
 
    /****************************************/
    /****************************************/
@@ -33,16 +96,21 @@ namespace argos {
       std::string strController;
       std::string strCanSendTo;
       std::vector<std::string> vecCanSendTo;
+      std::set<std::string> setCanSendTo;
       for(itPiPuck = itPiPuck.begin(&GetNode(t_tree,"robots"));
           itPiPuck != itPiPuck.end();
           ++itPiPuck) {
          GetNodeAttribute(*itPiPuck, "id", strId);
          GetNodeAttribute(*itPiPuck, "controller", strController);
          GetNodeAttribute(*itPiPuck, "can_send_to", strCanSendTo);
+         vecCanSendTo.clear();
+         setCanSendTo.clear();
          Tokenize(strCanSendTo, vecCanSendTo, ",");
+         setCanSendTo.insert(std::begin(vecCanSendTo),
+                             std::end(vecCanSendTo));
          m_mapRobots.emplace(std::piecewise_construct,
                              std::forward_as_tuple(strId),
-                             std::forward_as_tuple(strController, vecCanSendTo));
+                             std::forward_as_tuple(strController, setCanSendTo));
       }
    }
 
@@ -159,6 +227,11 @@ namespace argos {
                      RemoveEntity(*sPiPuck.Entity);
                   }
                   else {
+                     CCI_Controller& cController =
+                        sPiPuck.Entity->GetControllableEntity().GetController();
+                     CDTAAbstractWifiActuator* pcWifiActuator =
+                        cController.GetActuator<CDTAAbstractWifiActuator>("wifi");
+                     pcWifiActuator->SetCanSendTo(sPiPuck.CanSendTo);
                      // START HACK
                      CSimulator::GetInstance().GetMedium<CRadioMedium>("wifi").Update();
                      // END HACK
@@ -178,5 +251,8 @@ namespace argos {
    /****************************************/
 
    REGISTER_LOOP_FUNCTIONS(CDTAAbstractLoopFunctions, "dta_abstract_loop_functions");
+
+   /****************************************/
+   /****************************************/
 
 }
