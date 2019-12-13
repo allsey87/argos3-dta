@@ -4,8 +4,7 @@ This repository contains the ARGoS controllers and loop functions for investigat
 
 ## Dependencies
 * [ARGoS3 (beta56 or higher)](https://www.argos-sim.info/core.php)
-* [ARGoS3-SRoCS (commit #7350b82
-or later)](https://github.com/allsey87/argos3-srocs)
+* [ARGoS3-SRoCS (commit #82285c7 or later)](https://github.com/allsey87/argos3-srocs)
 
 ## Compilation and installation
 1. It is recommended that you uninstall older versions of ARGoS that may be installed on your system and to remove any local configuration that you may have for ARGoS as follows.
