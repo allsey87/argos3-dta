@@ -61,9 +61,6 @@ namespace argos {
       std::array<UInt32, 2> m_arrLayout;
 
       std::map<std::string, SPiPuck> m_mapRobots;
-
-      std::vector<CPiPuckEntity*> m_vecRobots;
-
    };
 
 

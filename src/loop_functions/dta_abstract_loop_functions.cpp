@@ -119,7 +119,7 @@ namespace argos {
 
    void CDTAAbstractLoopFunctions::Reset() {
       /* remove all robots */
-      for(std::pair<const std::string, SPiPuck> c_pair : m_mapRobots) {
+      for(std::pair<const std::string, SPiPuck>& c_pair : m_mapRobots) {
          SPiPuck& s_pipuck = c_pair.second;
          RemoveEntity(*s_pipuck.Entity);
          s_pipuck.Entity = nullptr;
@@ -160,7 +160,7 @@ namespace argos {
                   m_vecCells[unX + m_arrLayout[0] * unY] = true;
                   m_cSpace.GetFloorEntity().SetChanged();
                   // TODO the following delay is for the next cell to be shaded
-                  m_unStepsUntilShadeCell = 0;
+                  m_unStepsUntilShadeCell = 5;
                   break;
                }
             }
@@ -171,14 +171,17 @@ namespace argos {
       }
       /* handle cell unshading */
       const CVector3& cArenaSize = m_cSpace.GetArenaSize();
-      for(CPiPuckEntity* pc_robot : m_vecRobots) {
-         const CVector3& cPosition =
-            pc_robot->GetEmbodiedEntity().GetOriginAnchor().Position;
-         UInt32 unX = static_cast<UInt32>(cPosition.GetX() * m_arrLayout.at(0) / cArenaSize.GetX());
-         UInt32 unY = static_cast<UInt32>(cPosition.GetY() * m_arrLayout.at(1) / cArenaSize.GetY());
-         if(m_vecCells.at(unX + m_arrLayout[0] * unY)) {
-            m_vecCells[unX + m_arrLayout[0] * unY] = false;
-            m_cSpace.GetFloorEntity().SetChanged();
+      for(std::pair<const std::string, SPiPuck>& c_pair : m_mapRobots) {
+         SPiPuck& sPiPuck = c_pair.second;
+         if(sPiPuck.Entity != nullptr) {
+            const CVector3& cPosition =
+               sPiPuck.Entity->GetEmbodiedEntity().GetOriginAnchor().Position;
+            UInt32 unX = static_cast<UInt32>(cPosition.GetX() * m_arrLayout.at(0) / cArenaSize.GetX());
+            UInt32 unY = static_cast<UInt32>(cPosition.GetY() * m_arrLayout.at(1) / cArenaSize.GetY());
+            if(m_vecCells.at(unX + m_arrLayout[0] * unY)) {
+               m_vecCells[unX + m_arrLayout[0] * unY] = false;
+               m_cSpace.GetFloorEntity().SetChanged();
+            }
          }
       }
       /* find the robots that want to change to the foraging task */
@@ -194,12 +197,12 @@ namespace argos {
             if(!strLoopFunctionsBuffer.empty()) {
                std::cerr << strId << ": construction -> foraging" << std::endl;
                RemoveEntity(*sPiPuck.Entity);
-               // START HACK
-               CSimulator::GetInstance().GetMedium<CRadioMedium>("wifi").Update();
-               // END HACK
                sPiPuck.Entity = nullptr;
                // TODO the follow value control when the robots will be respawned
                sPiPuck.StepsUntilReturnToConstructionTask = 5;
+               // START HACK
+               CSimulator::GetInstance().GetMedium<CRadioMedium>("wifi").Update();
+               // END HACK
             }
          }
       }
@@ -225,6 +228,7 @@ namespace argos {
                   AddEntity(*sPiPuck.Entity);
                   if(sPiPuck.Entity->GetEmbodiedEntity().IsCollidingWithSomething()) {
                      RemoveEntity(*sPiPuck.Entity);
+                     sPiPuck.Entity = nullptr;
                   }
                   else {
                      CCI_Controller& cController =
