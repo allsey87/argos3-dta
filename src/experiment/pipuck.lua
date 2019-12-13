@@ -43,7 +43,7 @@ function step()
    -- tell the loop functions we want to switch to foraging
    if robot.ground.center.reading < 0.75 then
       ground_accumulator = ground_accumulator + 1
-      if ground_accumulator > 10 then
+      if ground_accumulator > 25 then
          robot.debug.loop_functions("foraging");
       end
    end

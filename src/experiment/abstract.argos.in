@@ -83,6 +83,7 @@
   <media>
     <!--directional_led id="directional_leds" index="grid" grid_size="20,20,20"/-->
     <radio id="wifi" index="grid" grid_size="20,20,20" />
+    <tag id="tags" index="grid" grid_size="20,20,20" />
   </media>
 
   <!-- ****************** -->
