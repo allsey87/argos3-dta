@@ -9,14 +9,8 @@ function init()
       children = {{
          type = "sequence",
          children = {
-            function() return false, closest_obstacle == "left" or closest_obstacle == "front" end,
+            function() return false, obstacle_detected end,
             function() robot.differential_drive.set_target_velocity(0.05, 0.05) return true end,
-         }}, {
-         type = "sequence",
-         children = {
-            function() return false, closest_obstacle == "right" end,
-            function() robot.differential_drive.set_target_velocity(-0.05, -0.05) return true end,
-
          }},
          function() robot.differential_drive.set_target_velocity(0.05, -0.05) return true end,
       }
@@ -25,7 +19,7 @@ end
 
 function step()
    -- process obstacles
-   closest_obstacle = nil
+   obstacle_detected = false
    local obstacles = {
       left = robot.rangefinders[2].reading,
       front = robot.rangefinders[1].reading,
@@ -33,9 +27,7 @@ function step()
    }
    for obstacle, distance in pairs(obstacles) do
       if distance < 0.1 then
-         if closest_obstacle == nil or distance < obstacles[closest_obstacle] then
-            closest_obstacle = obstacle
-         end
+         obstacle_detected = true
       end
    end
    -- tick obstacle avoidance behavior tree
