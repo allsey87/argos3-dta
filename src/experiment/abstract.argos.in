@@ -43,16 +43,16 @@
                   output="data.csv">
       <parameters grid_layout="25,25" foraging_delay_coeff="1" foraging_duration_mean="100" construction_limit="5" />
       <robots>
-         <pipuck id="pipuck0" controller="pipuck" can_send_to="pipuck1,pipuck2,pipuck3" />
-         <pipuck id="pipuck1" controller="pipuck" can_send_to="pipuck0" />
-         <pipuck id="pipuck2" controller="pipuck" can_send_to="pipuck1,pipuck3" />
-         <pipuck id="pipuck3" controller="pipuck" can_send_to="pipuck1,pipuck2" />
-         <pipuck id="pipuck4" controller="pipuck" can_send_to="pipuck3,pipuck4" />
-         <pipuck id="pipuck5" controller="pipuck" can_send_to="pipuck1,pipuck6" />
-         <pipuck id="pipuck6" controller="pipuck" can_send_to="pipuck7,pipuck11" />
-         <pipuck id="pipuck7" controller="pipuck" can_send_to="pipuck6,pipuck10" />
-         <pipuck id="pipuck8" controller="pipuck" can_send_to="pipuck5,pipuck9" />
-         <pipuck id="pipuck9" controller="pipuck" can_send_to="pipuck4,pipuck8" />
+         <pipuck id="pipuck0" controller="pipuck" can_send_to="pipuck1,pipuck7,pipuck3" />
+         <pipuck id="pipuck1" controller="pipuck" can_send_to="pipuck0,pipuck5,pipuck9" />
+         <pipuck id="pipuck2" controller="pipuck" can_send_to="pipuck1,pipuck3,pipuck5" />
+         <pipuck id="pipuck3" controller="pipuck" can_send_to="pipuck1,pipuck8,pipuck8" />
+         <pipuck id="pipuck4" controller="pipuck" can_send_to="pipuck3,pipuck4,pipuck0" />
+         <pipuck id="pipuck5" controller="pipuck" can_send_to="pipuck1,pipuck6,pipuck4" />
+         <pipuck id="pipuck6" controller="pipuck" can_send_to="pipuck7,pipuck9,pipuck6" />
+         <pipuck id="pipuck7" controller="pipuck" can_send_to="pipuck6,pipuck8,pipuck0" />
+         <pipuck id="pipuck8" controller="pipuck" can_send_to="pipuck5,pipuck9,pipuck1" />
+         <pipuck id="pipuck9" controller="pipuck" can_send_to="pipuck4,pipuck8,pipuck3" />
       </robots>
   </loop_functions>
 
