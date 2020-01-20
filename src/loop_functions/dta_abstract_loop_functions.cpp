@@ -1,10 +1,13 @@
 #include "dta_abstract_loop_functions.h"
 
 #include <argos3/core/simulator/entity/floor_entity.h>
+#include <argos3/core/utility/math/rng.h>
 #include <argos3/plugins/simulator/entities/debug_entity.h>
 #include <argos3/plugins/simulator/media/radio_medium.h>
 #include <argos3/plugins/robots/generic/simulator/wifi_default_actuator.h>
 #include <argos3/plugins/robots/pi-puck/simulator/pipuck_entity.h>
+
+#define CSV_HEADER "\"foraging robots\",\"building robots\",\"blocks in cache\""
 
 namespace argos {
 
@@ -75,21 +78,37 @@ namespace argos {
    /****************************************/
 
    CDTAAbstractLoopFunctions::CDTAAbstractLoopFunctions() :
-      m_cSpace(CSimulator::GetInstance().GetSpace()),
-      m_pcRNG(CRandom::CreateRNG("argos")),
-      m_unStepsUntilShadeCell(0) {}
+      m_unStepsUntilShadeCell(0) {
+      /* calculate the ticks per second */
+      UInt32 unTicksPerSecond =
+         static_cast<UInt32>(std::round(CPhysicsEngine::GetInverseSimulationClockTick()));
+      m_vecConstructionEvents.assign(unTicksPerSecond, 0);
+   }
 
    /****************************************/
    /****************************************/
 
    void CDTAAbstractLoopFunctions::Init(TConfigurationNode& t_tree) {
-      /* parse the layout */
-      std::string strLayout;
-      GetNodeAttribute(GetNode(t_tree, "grid"), "layout", strLayout);
-      ParseValues<UInt32>(strLayout, 2, m_arrLayout.data(), ',');
+      GetNodeAttributeOrDefault(t_tree, "output", m_strOutputFilename, m_strOutputFilename);
+      if(!m_strOutputFilename.empty()) {
+         m_cOutputFile.open(m_strOutputFilename, std::ios_base::out | std::ios_base::trunc);
+         if(m_cOutputFile.is_open() && m_cOutputFile.good()) {
+            m_cOutputFile << CSV_HEADER << std::endl;
+         }
+      }
+      /* parse the parameters */
+      TConfigurationNode& tParameters = GetNode(t_tree, "parameters");
+      /* parse the foraging delay coefficient and the construction limit */
+      GetNodeAttribute(tParameters, "foraging_delay_coeff", m_fForagingDelayCoefficient);
+      GetNodeAttribute(tParameters, "foraging_duration_mean", m_fForagingDurationMean);
+      GetNodeAttribute(tParameters, "construction_limit", m_unConstructionLimit);
+      /* parse the grid configuration */
+      std::string strGridLayout;
+      GetNodeAttribute(tParameters, "grid_layout", strGridLayout);
+      ParseValues<UInt32>(strGridLayout, 2, m_arrGridLayout.data(), ',');
       /* initialize vector of cells */
-      m_vecCells.assign(m_arrLayout[0] * m_arrLayout[1], false);
-      m_cSpace.GetFloorEntity().SetChanged();
+      m_vecCells.assign(m_arrGridLayout[0] * m_arrGridLayout[1], false);
+      GetSpace().GetFloorEntity().SetChanged();
       /* create a map of the pi-puck robots */
       TConfigurationNodeIterator itPiPuck("pipuck");
       std::string strId;
@@ -127,40 +146,84 @@ namespace argos {
       }
       /* clear all cells and mark the floor as changed */
       m_vecCells.assign(m_vecCells.size(), false);
-      m_cSpace.GetFloorEntity().SetChanged();
+      GetSpace().GetFloorEntity().SetChanged();
+      /* zero out the construction events */
+      m_vecConstructionEvents.assign(m_vecConstructionEvents.size(), 0);
+      if(m_cOutputFile.is_open()) {
+         m_cOutputFile.close();
+         m_cOutputFile.clear();
+      }
+      if(!m_strOutputFilename.empty()) {
+         m_cOutputFile.open(m_strOutputFilename, std::ios_base::out | std::ios_base::trunc);
+         if(m_cOutputFile.is_open() && m_cOutputFile.good()) {
+            m_cOutputFile << CSV_HEADER << std::endl;
+         }
+      }
+   }
+
+   /****************************************/
+   /****************************************/
+
+   void CDTAAbstractLoopFunctions::Destroy() {
+      if(m_cOutputFile.is_open()) {
+         m_cOutputFile.close();
+      }
    }
 
    /****************************************/
    /****************************************/
 
    CColor CDTAAbstractLoopFunctions::GetFloorColor(const CVector2& c_position) {
-      const CVector3& cArenaSize = m_cSpace.GetArenaSize();
+      const CVector3& cArenaSize = GetSpace().GetArenaSize();
       /* convert c_position into cell coordinates */
-      UInt32 unX = static_cast<UInt32>(c_position.GetX() * m_arrLayout.at(0) / cArenaSize.GetX());
-      UInt32 unY = static_cast<UInt32>(c_position.GetY() * m_arrLayout.at(1) / cArenaSize.GetY());
+      UInt32 unX = static_cast<UInt32>(c_position.GetX() * m_arrGridLayout.at(0) / cArenaSize.GetX());
+      UInt32 unY = static_cast<UInt32>(c_position.GetY() * m_arrGridLayout.at(1) / cArenaSize.GetY());
       /* shade cell if occupied */
-      return m_vecCells.at(unX + m_arrLayout[0] * unY) ? CColor::GRAY50 : CColor::GRAY80;
+      return m_vecCells.at(unX + m_arrGridLayout[0] * unY) ? CColor::GRAY50 : CColor::GRAY80;
    }
 
    /****************************************/
    /****************************************/
 
    void CDTAAbstractLoopFunctions::PostStep() {
+      /* total number of robots */
+      UInt32 unRobotsCount = m_mapRobots.size();
+      /* count the robots that are foraging */
+      UInt32 unForagingRobotsCount =
+         std::count_if(std::begin(m_mapRobots),
+                       std::end(m_mapRobots),
+                       [] (const std::pair<const std::string, SPiPuck>& s_pipuck) {
+            return (s_pipuck.second.Entity == nullptr);
+         }
+      );
+      /* calculate the robots that are building */
+      UInt32 unBuildingRobotsCount = unRobotsCount - unForagingRobotsCount;
+      /* calculate the number of shaded cells */
+      UInt32 unShadedCells =
+            std::count(std::begin(m_vecCells), std::end(m_vecCells), true);
+      /* write output */
+      if(m_cOutputFile.is_open() && m_cOutputFile.good()) {
+         m_cOutputFile << unForagingRobotsCount << ","
+                       << unBuildingRobotsCount << ","
+                       << unShadedCells << std::endl;
+      }
       /* handle cell shading */
       if(m_unStepsUntilShadeCell == 0) {
-         CRange<UInt32> cXRange(0, m_arrLayout[0]);
-         CRange<UInt32> cYRange(0, m_arrLayout[1]);
-         UInt32 unShadedCells =
-            std::count(std::begin(m_vecCells), std::end(m_vecCells), true);
-         if(unShadedCells < m_arrLayout[0] * m_arrLayout[1]) {
+         CRange<UInt32> cXRange(0, m_arrGridLayout[0]);
+         CRange<UInt32> cYRange(0, m_arrGridLayout[1]);
+         if(unShadedCells < m_arrGridLayout[0] * m_arrGridLayout[1]) {
             for(;;) {
-               UInt32 unX = m_pcRNG->Uniform(cXRange);
-               UInt32 unY = m_pcRNG->Uniform(cYRange);
-               if(!m_vecCells.at(unX + m_arrLayout[0] * unY)) {
-                  m_vecCells[unX + m_arrLayout[0] * unY] = true;
-                  m_cSpace.GetFloorEntity().SetChanged();
-                  // TODO the following delay is for the next cell to be shaded
-                  m_unStepsUntilShadeCell = 5;
+               UInt32 unX = GetSimulator().GetRNG()->Uniform(cXRange);
+               UInt32 unY = GetSimulator().GetRNG()->Uniform(cYRange);
+               if(!m_vecCells.at(unX + m_arrGridLayout[0] * unY)) {
+                  m_vecCells[unX + m_arrGridLayout[0] * unY] = true;
+                  GetSpace().GetFloorEntity().SetChanged();
+                  /* calculate the mean time until the next block should appear */
+                  Real fMean =
+                     m_fForagingDelayCoefficient * (unRobotsCount - unForagingRobotsCount);
+                  /* get the number of timesteps until the next block appears following the
+                     poisson distribution */
+                  m_unStepsUntilShadeCell = GetSimulator().GetRNG()->Poisson(fMean);
                   break;
                }
             }
@@ -170,17 +233,29 @@ namespace argos {
          m_unStepsUntilShadeCell -= 1;
       }
       /* handle cell unshading */
-      const CVector3& cArenaSize = m_cSpace.GetArenaSize();
+      /* get the number of block attachments for this step */
+      UInt32& unConstructionEvents =
+         m_vecConstructionEvents.at(GetSpace().GetSimulationClock() % m_vecConstructionEvents.size());
+      /* reset the current value to zero */
+      unConstructionEvents = 0;
+      const CVector3& cArenaSize = GetSpace().GetArenaSize();
       for(std::pair<const std::string, SPiPuck>& c_pair : m_mapRobots) {
          SPiPuck& sPiPuck = c_pair.second;
          if(sPiPuck.Entity != nullptr) {
             const CVector3& cPosition =
                sPiPuck.Entity->GetEmbodiedEntity().GetOriginAnchor().Position;
-            UInt32 unX = static_cast<UInt32>(cPosition.GetX() * m_arrLayout.at(0) / cArenaSize.GetX());
-            UInt32 unY = static_cast<UInt32>(cPosition.GetY() * m_arrLayout.at(1) / cArenaSize.GetY());
-            if(m_vecCells.at(unX + m_arrLayout[0] * unY)) {
-               m_vecCells[unX + m_arrLayout[0] * unY] = false;
-               m_cSpace.GetFloorEntity().SetChanged();
+            UInt32 unX = static_cast<UInt32>(cPosition.GetX() * m_arrGridLayout.at(0) / cArenaSize.GetX());
+            UInt32 unY = static_cast<UInt32>(cPosition.GetY() * m_arrGridLayout.at(1) / cArenaSize.GetY());
+            if(m_vecCells.at(unX + m_arrGridLayout[0] * unY)) {
+               UInt32 unTotalConstructionEvents = 0;
+               for(UInt32 un_count : m_vecConstructionEvents) {
+                  unTotalConstructionEvents += un_count;
+               }
+               if(unTotalConstructionEvents < m_unConstructionLimit) {
+                  unConstructionEvents += 1;
+                  m_vecCells[unX + m_arrGridLayout[0] * unY] = false;
+                  GetSpace().GetFloorEntity().SetChanged();
+               }
             }
          }
       }
@@ -195,13 +270,15 @@ namespace argos {
             const std::string& strLoopFunctionsBuffer =
                sPiPuck.Entity->GetDebugEntity().GetBuffer("loop_functions");
             if(!strLoopFunctionsBuffer.empty()) {
-               std::cerr << strId << ": construction -> foraging" << std::endl;
                RemoveEntity(*sPiPuck.Entity);
                sPiPuck.Entity = nullptr;
-               // TODO the follow value control when the robots will be respawned
-               sPiPuck.StepsUntilReturnToConstructionTask = 5;
+               sPiPuck.StepsUntilReturnToConstructionTask =
+                  GetSimulator().GetRNG()->Poisson(m_fForagingDurationMean);
+               std::cerr << strId << ": construction -> foraging ("
+                         << sPiPuck.StepsUntilReturnToConstructionTask
+                         << ")" << std::endl;
                // START HACK
-               CSimulator::GetInstance().GetMedium<CRadioMedium>("wifi").Update();
+               GetSimulator().GetMedium<CRadioMedium>("wifi").Update();
                // END HACK
             }
          }
@@ -218,9 +295,9 @@ namespace argos {
                CRange<Real> cXRange(0.05, cArenaSize.GetX() - 0.05);
                CRange<Real> cYRange(0.05, cArenaSize.GetY() - 0.05);
                for(;;) {
-                  Real fX = CSimulator::GetInstance().GetRNG()->Uniform(cXRange);
-                  Real fY = CSimulator::GetInstance().GetRNG()->Uniform(cYRange);
-                  CRadians cZ = CSimulator::GetInstance().GetRNG()->Uniform(CRadians::SIGNED_RANGE);
+                  Real fX = GetSimulator().GetRNG()->Uniform(cXRange);
+                  Real fY = GetSimulator().GetRNG()->Uniform(cYRange);
+                  CRadians cZ = GetSimulator().GetRNG()->Uniform(CRadians::SIGNED_RANGE);
                   CVector3 cPosition(fX, fY, 0);
                   CQuaternion cOrientation(cZ, CVector3::Z);
                   sPiPuck.Entity = 
@@ -237,7 +314,7 @@ namespace argos {
                         cController.GetActuator<CDTAAbstractWifiActuator>("wifi");
                      pcWifiActuator->SetCanSendTo(sPiPuck.CanSendTo);
                      // START HACK
-                     CSimulator::GetInstance().GetMedium<CRadioMedium>("wifi").Update();
+                     GetSimulator().GetMedium<CRadioMedium>("wifi").Update();
                      // END HACK
                      break;
                   }

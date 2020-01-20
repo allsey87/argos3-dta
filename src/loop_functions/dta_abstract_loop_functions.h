@@ -5,11 +5,14 @@ namespace argos {
    class CPiPuckEntity;
 }
 
-#include <argos3/core/simulator/space/space.h>
 #include <argos3/core/simulator/loop_functions.h>
-#include <argos3/core/utility/math/rng.h>
 
+#include <array>
+#include <fstream>
+#include <map>
+#include <string>
 #include <set>
+#include <vector>
 
 namespace argos {
 
@@ -43,24 +46,26 @@ namespace argos {
 
       virtual void Reset();
 
-      //virtual void Destroy();
-
-      //virtual void PreStep();
+      virtual void Destroy();
 
       virtual void PostStep();
 
    private:
-      CSpace& m_cSpace;
+      /* loop function configuration */
+      std::array<UInt32, 2> m_arrGridLayout;
+      Real m_fForagingDelayCoefficient;
+      Real m_fForagingDurationMean;
+      UInt32 m_unConstructionLimit;
 
-      CRandom::CRNG* m_pcRNG;
+      /* loop function output */
+      std::string m_strOutputFilename;
+      std::ofstream m_cOutputFile;
 
+      /* loop function state */
       UInt32 m_unStepsUntilShadeCell;
-
       std::vector<bool> m_vecCells;
-
-      std::array<UInt32, 2> m_arrLayout;
-
       std::map<std::string, SPiPuck> m_mapRobots;
+      std::vector<UInt32> m_vecConstructionEvents;
    };
 
 
