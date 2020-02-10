@@ -39,8 +39,18 @@ function step()
          robot.debug.loop_functions("foraging");
       end
    end
-   -- send robot id and value in the ground accumlator
-   robot.wifi.tx_data({robot.id, ground_accumulator})
+   -- put the robot id and the value of the ground accumlator in a table
+   local data = {
+      id = robot.id,
+      acc = ground_accumulator
+   }
+   -- send that table over wifi
+   robot.wifi.tx_data(data)
+   -- print the received data from other robots
+   log(string.format("[%s received]", robot.id))
+   for index, message in ipairs(robot.wifi.rx_data) do
+      log(string.format("%d: %s => %d", index, message.id, message.acc))
+   end
 end
 
 function reset() end

@@ -47,9 +47,9 @@
       <pipuck id="pipuck1" controller="pipuck" can_send_to="pipuck0,pipuck5,pipuck9" />
       <pipuck id="pipuck2" controller="pipuck" can_send_to="pipuck1,pipuck3,pipuck5" />
       <pipuck id="pipuck3" controller="pipuck" can_send_to="pipuck1,pipuck8,pipuck8" />
-      <pipuck id="pipuck4" controller="pipuck" can_send_to="pipuck3,pipuck4,pipuck0" />
+      <pipuck id="pipuck4" controller="pipuck" can_send_to="pipuck3,pipuck8,pipuck0" />
       <pipuck id="pipuck5" controller="pipuck" can_send_to="pipuck1,pipuck6,pipuck4" />
-      <pipuck id="pipuck6" controller="pipuck" can_send_to="pipuck7,pipuck9,pipuck6" />
+      <pipuck id="pipuck6" controller="pipuck" can_send_to="pipuck7,pipuck9,pipuck4" />
       <pipuck id="pipuck7" controller="pipuck" can_send_to="pipuck6,pipuck8,pipuck0" />
       <pipuck id="pipuck8" controller="pipuck" can_send_to="pipuck5,pipuck9,pipuck1" />
       <pipuck id="pipuck9" controller="pipuck" can_send_to="pipuck4,pipuck8,pipuck3" />
