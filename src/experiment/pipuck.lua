@@ -1,10 +1,12 @@
 luabt = require('luabt')
 
 function init()
-   -- ground accumator
-   ground_accumulator = 0
-   -- obstacle avoidance behavior
-   behavior = luabt.create({
+   --[[ create an entry in the robot table to store
+        the readings from the ground sensors ]]--
+   robot.accumulator = 0
+   --[[ create an entry in the robot table to store
+        the obstacle avoidance behavior tree ]]--
+   robot.behavior = luabt.create({
       type = "selector",
       children = {{
          type = "sequence",
@@ -15,37 +17,43 @@ function init()
          function() robot.differential_drive.set_target_velocity(0.05, -0.05) return true end,
       }
    })
+   --[[ create an entry in the robot table to store
+        the robot's current state ]]--
+   robot.state = "disseminating"
 end
 
 function step()
    -- process obstacles
    obstacle_detected = false
-   local obstacles = {
-      left = robot.rangefinders[2].reading,
-      front = robot.rangefinders[1].reading,
-      right = robot.rangefinders[12].reading,
+   local rangefinders = {
+      far_left  = robot.rangefinders[7].reading,
+      left      = robot.rangefinders[8].reading,
+      right     = robot.rangefinders[1].reading,
+      far_right = robot.rangefinders[2].reading,
    }
-   for obstacle, distance in pairs(obstacles) do
-      if distance < 0.1 then
+   for rangefinder, reading in pairs(rangefinders) do
+      if reading < 0.1 then
          obstacle_detected = true
       end
    end
    -- tick obstacle avoidance behavior tree
-   behavior()
+   robot.behavior()
    -- tell the loop functions we want to switch to foraging
    if robot.ground.center.reading < 0.75 then
-      ground_accumulator = ground_accumulator + 1
-      if ground_accumulator > 25 then
+      robot.accumulator = robot.accumulator + 1
+      if robot.accumulator > 25 and robot.random.uniform(0,1) > 0.25 then
          robot.debug.loop_functions("foraging");
       end
    end
    -- put the robot id and the value of the ground accumlator in a table
-   local data = {
-      id = robot.id,
-      acc = ground_accumulator
-   }
-   -- send that table over wifi
-   robot.wifi.tx_data(data)
+   if robot.state == "disseminating" then
+      local data = {
+         id = robot.id,
+         acc = robot.accumulator
+      }
+      -- send that table over wifi
+      robot.wifi.tx_data(data)
+   end
    -- print the received data from other robots
    log(string.format("[%s received]", robot.id))
    for index, message in ipairs(robot.wifi.rx_data) do
