@@ -13,7 +13,8 @@
       <actuators>
         <pipuck_differential_drive implementation="default" />
         <debug implementation="default">
-          <interface id="loop_functions" />
+          <interface id="set_task" />
+          <interface id="set_estimate" />
         </debug>
         <wifi implementation="dta_abstract" />
       </actuators>

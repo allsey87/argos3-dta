@@ -32,7 +32,7 @@ function step()
       far_right = robot.rangefinders[2].reading,
    }
    for rangefinder, reading in pairs(rangefinders) do
-      if reading < 0.1 then
+      if reading < 0.075 then
          obstacle_detected = true
       end
    end
@@ -42,9 +42,12 @@ function step()
    if robot.ground.center.reading < 0.75 then
       robot.accumulator = robot.accumulator + 1
       if robot.accumulator > 25 and robot.random.uniform(0,1) > 0.25 then
-         robot.debug.loop_functions("foraging");
+         robot.debug.set_task("foraging");
       end
    end
+   -- send the current estimate to the loop functions
+   local estimate = string.format("%.3f", robot.accumulator);
+   robot.debug.set_estimate(estimate);
    -- put the robot id and the value of the ground accumlator in a table
    if robot.state == "disseminating" then
       local data = {
