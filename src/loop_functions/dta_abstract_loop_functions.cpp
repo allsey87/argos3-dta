@@ -201,6 +201,20 @@ namespace argos {
       /* calculate the number of shaded cells */
       UInt32 unShadedCells =
             std::count(std::begin(m_vecCells), std::end(m_vecCells), true);
+      /* get the current estimate value from each robot */
+      for(std::pair<const std::string, SPiPuck>& c_pair : m_mapRobots) {
+         SPiPuck& sPiPuck = c_pair.second;
+         const std::string& strId = c_pair.first;
+         /* only consider robots currently performing the construction task */
+         if(sPiPuck.Entity != nullptr) {
+            const std::string& strEstimateBuffer =
+               sPiPuck.Entity->GetDebugEntity().GetBuffer("set_estimate");
+            std::stringstream cEstimate(strEstimateBuffer);
+            Real fEstimate = 0.0;
+            cEstimate >> fEstimate;
+            LOGERR << strId << ": estimate = " << fEstimate << std::endl;
+         }
+      }
       /* write output */
       if(m_cOutputFile.is_open() && m_cOutputFile.good()) {
          m_cOutputFile << unForagingRobotsCount << ","
@@ -268,7 +282,7 @@ namespace argos {
             /* to keep things simple: a non-empty loop_functions buffer indicates
                that the controller wants to swap to the foraging task */
             const std::string& strLoopFunctionsBuffer =
-               sPiPuck.Entity->GetDebugEntity().GetBuffer("loop_functions");
+               sPiPuck.Entity->GetDebugEntity().GetBuffer("set_task");
             if(!strLoopFunctionsBuffer.empty()) {
                RemoveEntity(*sPiPuck.Entity);
                sPiPuck.Entity = nullptr;
