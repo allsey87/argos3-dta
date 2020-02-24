@@ -1,0 +1,120 @@
+<?xml version="1.0" ?>
+<argos-configuration>
+
+  <!-- General configuration -->
+  <framework>
+    <system threads="0" />
+    <experiment length="0" ticks_per_second="5" random_seed="0" />
+  </framework>
+  
+  <!-- Controllers -->
+  <controllers>
+    <lua_controller id="pipuck">
+      <actuators>
+        <pipuck_differential_drive implementation="default" />
+        <debug implementation="default">
+          <interface id="loop_functions" />
+        </debug>
+        <wifi implementation="dta_abstract" />
+      </actuators>
+      <sensors>
+        <pipuck_ground implementation="default" show_rays="false" />
+        <pipuck_differential_drive implementation="default" />
+        <pipuck_rangefinders implementation="default" show_rays="true" />
+        <wifi implementation="default" show_rays="true" />
+      </sensors>
+      <params script="@CMAKE_BINARY_DIR@/experiment/pipuck_ilja.lua" />
+    </lua_controller>
+
+  </controllers>
+
+  <!-- Loop functions
+     parameters
+         * foraging_delay_coeff: the delay between the spawning of two blocks follows a possion 
+           distribution whose mean is calculated as:
+              foraging_mean_delay = foraging_delay_coeff * (total_robots - robots_foraging)
+         * foraging_duration_mean: the amount of time that a robot spends foraging follows a 
+              possion distribution whose mean is: foraging_duration_mean
+         * construction_limit: is the maximum number of blocks that can be attached to a structure
+              every second (the limit is imposed on how many blocks have been placed in the last second).
+  -->
+  <loop_functions library="@CMAKE_BINARY_DIR@/loop_functions/libdta_abstract_loop_functions"
+                  label="dta_abstract_loop_functions"
+                  output="data.csv">
+    <parameters grid_layout="25,25" foraging_delay_coeff="1" foraging_duration_mean="100" construction_limit="5" />
+    <robots>
+      <pipuck id="pipuck0" controller="pipuck" can_send_to="pipuck1,pipuck7,pipuck3" />
+      <pipuck id="pipuck1" controller="pipuck" can_send_to="pipuck0,pipuck5,pipuck9" />
+      <pipuck id="pipuck2" controller="pipuck" can_send_to="pipuck1,pipuck3,pipuck5" />
+      <pipuck id="pipuck3" controller="pipuck" can_send_to="pipuck1,pipuck8,pipuck8" />
+      <pipuck id="pipuck4" controller="pipuck" can_send_to="pipuck3,pipuck8,pipuck0" />
+      <pipuck id="pipuck5" controller="pipuck" can_send_to="pipuck1,pipuck6,pipuck4" />
+      <pipuck id="pipuck6" controller="pipuck" can_send_to="pipuck7,pipuck9,pipuck4" />
+      <pipuck id="pipuck7" controller="pipuck" can_send_to="pipuck6,pipuck8,pipuck0" />
+      <pipuck id="pipuck8" controller="pipuck" can_send_to="pipuck5,pipuck9,pipuck1" />
+      <pipuck id="pipuck9" controller="pipuck" can_send_to="pipuck4,pipuck8,pipuck3" />
+    </robots>
+  </loop_functions>
+
+  <!-- *********************** -->
+  <!-- * Arena configuration * -->
+  <!-- *********************** -->
+  <arena size="3, 3, 1" center="1.5, 1.5, 0">
+    <!-- update the floor using the loop functions -->
+    <floor id="floor" source="loop_functions" pixels_per_meter="100" />
+    <!-- add the arena walls -->
+    <box id="north" size="0.025,2.975,0.075" movable="false">
+      <body position="2.9875,1.5125,0"  orientation="0,0,0" />
+    </box>
+    <box id="east" size="2.975,0.025,0.075" movable="false">
+      <body position="1.5125,0.0125,0"  orientation="0,0,0" />
+    </box>
+    <box id="south" size="0.025,2.975,0.075" movable="false">
+      <body position="0.0125,1.4875,0"  orientation="0,0,0" />
+    </box>
+    <box id="west" size="2.975,0.025,0.075" movable="false">
+      <body position="1.4875,2.9875,0"  orientation="0,0,0" />
+    </box>
+  </arena>
+
+  <!-- ******************* -->
+  <!-- * Physics engines * -->
+  <!-- ******************* -->
+  <physics_engines>
+    <dynamics3d id="dyn3d" iterations="10" default_friction="1">
+      <gravity g="9.8" />
+      <floor friction="1" />
+    </dynamics3d>
+  </physics_engines>
+
+  <!-- ********* -->
+  <!-- * Media * -->
+  <!-- ********* -->
+  <media>
+    <!--directional_led id="directional_leds" index="grid" grid_size="20,20,20"/-->
+    <radio id="wifi" index="grid" grid_size="20,20,20" />
+    <tag id="tags" index="grid" grid_size="20,20,20" />
+  </media>
+
+  <!-- ****************** -->
+  <!-- * Visualization  * -->
+  <!-- ****************** -->
+
+  <visualization>
+    <qt-opengl lua_editor="false" show_boundary="false">
+      <camera>
+        <placement idx="0" position="1.5,1.5,5" look_at="1.5,1.5,0.125" up="1,0,0" lens_focal_length="40" />
+        <placement idx="1" position=" 1.5,-4.5,2" look_at="1.5,1.5,0.5" lens_focal_length="57" />
+        <placement idx="2" position=" 8.5,-5.5,5" look_at="1.5,1.5,0.5" lens_focal_length="92" />
+        <placement idx="3" position=" 7.5, 1.5,2" look_at="1.5,1.5,0.5" lens_focal_length="57" />
+        <placement idx="4" position=" 8.5, 8.5,5" look_at="1.5,1.5,0.5" lens_focal_length="92" />
+        <placement idx="5" position=" 1.5, 7.5,2" look_at="1.5,1.5,0.5" lens_focal_length="57" />
+        <placement idx="6" position="-5.5, 8.5,5" look_at="1.5,1.5,0.5" lens_focal_length="92" />
+        <placement idx="7" position="-4.5, 1.5,2" look_at="1.5,1.5,0.5" lens_focal_length="57" />
+        <placement idx="8" position="-5.5,-5.5,5" look_at="1.5,1.5,0.5" lens_focal_length="92" />
+      </camera>
+    </qt-opengl>
+  </visualization>
+
+
+</argos-configuration>

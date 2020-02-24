@@ -1,5 +1,5 @@
-#ifndef DTA_ABSTRACT_LOOP_FUNCTIONS_ILJA_H
-#define DTA_ABSTRACT_LOOP_FUNCTIONS_ILJA_H
+#ifndef DTA_ABSTRACT_LOOP_FUNCTIONS_H
+#define DTA_ABSTRACT_LOOP_FUNCTIONS_H
 
 namespace argos {
    class CPiPuckEntity;
@@ -56,9 +56,6 @@ namespace argos {
       Real m_fForagingDelayCoefficient;
       Real m_fForagingDurationMean;
       UInt32 m_unConstructionLimit;
-
-	   /* The random number generator */
-	   CRandom::CRNG* m_pcRNG;
 
       /* loop function output */
       std::string m_strOutputFilename;

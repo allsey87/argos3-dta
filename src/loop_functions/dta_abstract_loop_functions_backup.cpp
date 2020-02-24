@@ -1,4 +1,4 @@
-#include "dta_abstract_loop_functions_ilja.h"
+#include "dta_abstract_loop_functions.h"
 
 #include <argos3/core/simulator/entity/floor_entity.h>
 #include <argos3/core/utility/math/rng.h>
@@ -131,11 +131,6 @@ namespace argos {
                              std::forward_as_tuple(strId),
                              std::forward_as_tuple(strController, setCanSendTo));
       }
-		m_pcRNG = CRandom::CreateRNG("argos");
-    
-    for(size_t i = 0; i < m_vecCells.size(); i++) {
-		m_vecCells[i] = (m_pcRNG->Uniform(CRange<Real>(0.0, 1.0)) > 0.5);
-	}  
    }
 
    /****************************************/
@@ -151,10 +146,6 @@ namespace argos {
       }
       /* clear all cells and mark the floor as changed */
       m_vecCells.assign(m_vecCells.size(), false);
-    
-    for(size_t i = 0; i < m_vecCells.size(); i++) {
-		m_vecCells[i] = (m_pcRNG->Uniform(CRange<Real>(0.0, 1.0)) > 0.5);
-	}   
       GetSpace().GetFloorEntity().SetChanged();
       /* zero out the construction events */
       m_vecConstructionEvents.assign(m_vecConstructionEvents.size(), 0);
@@ -217,30 +208,30 @@ namespace argos {
                        << unShadedCells << std::endl;
       }
       /* handle cell shading */
-      //~ if(m_unStepsUntilShadeCell == 0) {
-         //~ CRange<UInt32> cXRange(0, m_arrGridLayout[0]);
-         //~ CRange<UInt32> cYRange(0, m_arrGridLayout[1]);
-         //~ if(unShadedCells < m_arrGridLayout[0] * m_arrGridLayout[1]) {
-            //~ for(;;) {
-               //~ UInt32 unX = GetSimulator().GetRNG()->Uniform(cXRange);
-               //~ UInt32 unY = GetSimulator().GetRNG()->Uniform(cYRange);
-               //~ if(!m_vecCells.at(unX + m_arrGridLayout[0] * unY)) {
-                  //~ m_vecCells[unX + m_arrGridLayout[0] * unY] = true;
-                  //~ GetSpace().GetFloorEntity().SetChanged();
-                  //~ /* calculate the mean time until the next block should appear */
-                  //~ Real fMean =
-                     //~ m_fForagingDelayCoefficient * (unRobotsCount - unForagingRobotsCount);
-                  //~ /* get the number of timesteps until the next block appears following the
-                     //~ poisson distribution */
-                  //~ m_unStepsUntilShadeCell = GetSimulator().GetRNG()->Poisson(fMean);
-                  //~ break;
-               //~ }
-            //~ }
-         //~ }
-      //~ }
-      //~ else {
-         //~ m_unStepsUntilShadeCell -= 1;
-      //~ }
+      if(m_unStepsUntilShadeCell == 0) {
+         CRange<UInt32> cXRange(0, m_arrGridLayout[0]);
+         CRange<UInt32> cYRange(0, m_arrGridLayout[1]);
+         if(unShadedCells < m_arrGridLayout[0] * m_arrGridLayout[1]) {
+            for(;;) {
+               UInt32 unX = GetSimulator().GetRNG()->Uniform(cXRange);
+               UInt32 unY = GetSimulator().GetRNG()->Uniform(cYRange);
+               if(!m_vecCells.at(unX + m_arrGridLayout[0] * unY)) {
+                  m_vecCells[unX + m_arrGridLayout[0] * unY] = true;
+                  GetSpace().GetFloorEntity().SetChanged();
+                  /* calculate the mean time until the next block should appear */
+                  Real fMean =
+                     m_fForagingDelayCoefficient * (unRobotsCount - unForagingRobotsCount);
+                  /* get the number of timesteps until the next block appears following the
+                     poisson distribution */
+                  m_unStepsUntilShadeCell = GetSimulator().GetRNG()->Poisson(fMean);
+                  break;
+               }
+            }
+         }
+      }
+      else {
+         m_unStepsUntilShadeCell -= 1;
+      }
       /* handle cell unshading */
       /* get the number of block attachments for this step */
       UInt32& unConstructionEvents =
@@ -263,26 +254,6 @@ namespace argos {
                if(unTotalConstructionEvents < m_unConstructionLimit) {
                   unConstructionEvents += 1;
                   m_vecCells[unX + m_arrGridLayout[0] * unY] = false;
-                  
-                  
-                  
-                  // INSTANTLY SHADE A RANDOM CELL 
-                  
-				 CRange<UInt32> cXRange(0, m_arrGridLayout[0]);
-				 CRange<UInt32> cYRange(0, m_arrGridLayout[1]);
-				 if(unShadedCells < m_arrGridLayout[0] * m_arrGridLayout[1]) {
-					for(;;) {
-					   UInt32 unX = GetSimulator().GetRNG()->Uniform(cXRange);
-					   UInt32 unY = GetSimulator().GetRNG()->Uniform(cYRange);
-					   if(!m_vecCells.at(unX + m_arrGridLayout[0] * unY)) {
-						  m_vecCells[unX + m_arrGridLayout[0] * unY] = true;
-						  break;
-					   }
-					}
-				 }
-                  
-                  
-                  
                   GetSpace().GetFloorEntity().SetChanged();
                }
             }
@@ -360,7 +331,7 @@ namespace argos {
    /****************************************/
    /****************************************/
 
-   REGISTER_LOOP_FUNCTIONS(CDTAAbstractLoopFunctions, "dta_abstract_loop_functions_ilja");
+   REGISTER_LOOP_FUNCTIONS(CDTAAbstractLoopFunctions, "dta_abstract_loop_functions");
 
    /****************************************/
    /****************************************/
