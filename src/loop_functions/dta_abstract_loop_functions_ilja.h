@@ -32,6 +32,8 @@ namespace argos {
          UInt32 StepsUntilReturnToConstructionTask;
          std::string Controller;
          std::set<std::string> CanSendTo;
+         UInt32 PreviousX;
+         UInt32 PreviousY;
       };
 
    public:
@@ -69,6 +71,7 @@ namespace argos {
       std::vector<bool> m_vecCells;
       std::map<std::string, SPiPuck> m_mapRobots;
       std::vector<UInt32> m_vecConstructionEvents;
+      std::map<std::string, std::vector<Real>> m_mapRobotStates;
    };
 
 
