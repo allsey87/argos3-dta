@@ -69,4 +69,5 @@ The abstract loop functions work in part by adding and removing robots from the 
 The code defining network topologies for a swarm of 343 and 500 pipucks can be found here:
 [Pipuck Networks](https://cloud.ilabt.imec.be/index.php/s/74rsRGkDsd4dj7i).
 Each file holds a topology for communication degrees *k={8,12,16,20}* (in case of random, regular, watts-strogatz, scale-free networks) or *k={6,12,24}* (in case of triadic graphs with id=38 (=> feedforward loop), id=98 (=> feedback loop), id=238 (=>bidirectional loop)).
+Additionally, there is a file for each one of 30 random-number-generator seeds.
 Paste all lines of a file into the configuration file (e.g. `abstract.argos`) inside `<loop_functions> <robots> ... </robots> </loop_functions>`.
