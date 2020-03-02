@@ -260,16 +260,22 @@ namespace argos {
                sPiPuck.Entity->GetEmbodiedEntity().GetOriginAnchor().Position;
             UInt32 unX = static_cast<UInt32>(cPosition.GetX() * m_arrGridLayout.at(0) / cArenaSize.GetX());
             UInt32 unY = static_cast<UInt32>(cPosition.GetY() * m_arrGridLayout.at(1) / cArenaSize.GetY());
-            if(m_vecCells.at(unX + m_arrGridLayout[0] * unY)) {
-               UInt32 unTotalConstructionEvents = 0;
-               for(UInt32 un_count : m_vecConstructionEvents) {
-                  unTotalConstructionEvents += un_count;
+            /* check if robot has moved to a different cell */
+            if((unX != sPiPuck.PreviousX) || (unY != sPiPuck.PreviousY)) {
+               UInt32 unCellIndex = sPiPuck.PreviousX + m_arrGridLayout[0] * sPiPuck.PreviousY;
+               if(m_vecCells.at(unCellIndex)) {
+                  UInt32 unTotalConstructionEvents = 0;
+                  for(UInt32 un_count : m_vecConstructionEvents) {
+                     unTotalConstructionEvents += un_count;
+                  }
+                  if(unTotalConstructionEvents < m_unConstructionLimit) {
+                     unConstructionEvents += 1;
+                     m_vecCells[unCellIndex] = false;
+                     GetSpace().GetFloorEntity().SetChanged();
+                  }
                }
-               if(unTotalConstructionEvents < m_unConstructionLimit) {
-                  unConstructionEvents += 1;
-                  m_vecCells[unX + m_arrGridLayout[0] * unY] = false;
-                  GetSpace().GetFloorEntity().SetChanged();
-               }
+               sPiPuck.PreviousX = unX;
+               sPiPuck.PreviousY = unY;
             }
          }
       }
@@ -322,6 +328,10 @@ namespace argos {
                      sPiPuck.Entity = nullptr;
                   }
                   else {
+                     /* initialize the previous cell coordinates of the new robot */
+                     sPiPuck.PreviousX = static_cast<UInt32>(fX * m_arrGridLayout.at(0) / cArenaSize.GetX());
+                     sPiPuck.PreviousY = static_cast<UInt32>(fY * m_arrGridLayout.at(1) / cArenaSize.GetY());
+                     /* configure wifi actuator */
                      CCI_Controller& cController =
                         sPiPuck.Entity->GetControllableEntity().GetController();
                      CDTAAbstractWifiActuator* pcWifiActuator =

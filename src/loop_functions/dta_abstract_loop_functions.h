@@ -32,6 +32,8 @@ namespace argos {
          UInt32 StepsUntilReturnToConstructionTask;
          std::string Controller;
          std::set<std::string> CanSendTo;
+         UInt32 PreviousX;
+         UInt32 PreviousY;
       };
 
    public:
