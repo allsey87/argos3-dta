@@ -59,6 +59,9 @@ namespace argos {
       Real m_fForagingDurationMean;
       UInt32 m_unConstructionLimit;
 
+	   /* The random number generator */
+	   CRandom::CRNG* m_pcRNG;
+
       /* loop function output */
       std::string m_strOutputFilename;
       std::ofstream m_cOutputFile;
@@ -68,6 +71,7 @@ namespace argos {
       std::vector<bool> m_vecCells;
       std::map<std::string, SPiPuck> m_mapRobots;
       std::vector<UInt32> m_vecConstructionEvents;
+      std::map<std::string, std::vector<Real>> m_mapRobotStates;
    };
 
 

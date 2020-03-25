@@ -7,7 +7,7 @@
 #include <argos3/plugins/robots/generic/simulator/wifi_default_actuator.h>
 #include <argos3/plugins/robots/pi-puck/simulator/pipuck_entity.h>
 
-#define CSV_HEADER "\"foraging robots\",\"building robots\",\"blocks in cache\""
+#define CSV_HEADER "\"foraging robots\"\t\"building robots\"\t\"average estimate\"\t\"average deviation\"\t\"construction events\"\t\"blocks in cache\""
 
 namespace argos {
 
@@ -89,6 +89,7 @@ namespace argos {
    /****************************************/
 
    void CDTAAbstractLoopFunctions::Init(TConfigurationNode& t_tree) {
+	   //LOG << "Initializing loop functions ..." << std::endl;
       GetNodeAttributeOrDefault(t_tree, "output", m_strOutputFilename, m_strOutputFilename);
       if(!m_strOutputFilename.empty()) {
          m_cOutputFile.open(m_strOutputFilename, std::ios_base::out | std::ios_base::trunc);
@@ -102,6 +103,8 @@ namespace argos {
       GetNodeAttribute(tParameters, "foraging_delay_coeff", m_fForagingDelayCoefficient);
       GetNodeAttribute(tParameters, "foraging_duration_mean", m_fForagingDurationMean);
       GetNodeAttribute(tParameters, "construction_limit", m_unConstructionLimit);
+      bool b_complet_network = false;
+      GetNodeAttribute(tParameters, "complete_network", b_complet_network);
       /* parse the grid configuration */
       std::string strGridLayout;
       GetNodeAttribute(tParameters, "grid_layout", strGridLayout);
@@ -116,21 +119,55 @@ namespace argos {
       std::string strCanSendTo;
       std::vector<std::string> vecCanSendTo;
       std::set<std::string> setCanSendTo;
-      for(itPiPuck = itPiPuck.begin(&GetNode(t_tree,"robots"));
-          itPiPuck != itPiPuck.end();
-          ++itPiPuck) {
-         GetNodeAttribute(*itPiPuck, "id", strId);
-         GetNodeAttribute(*itPiPuck, "controller", strController);
-         GetNodeAttribute(*itPiPuck, "can_send_to", strCanSendTo);
-         vecCanSendTo.clear();
-         setCanSendTo.clear();
-         Tokenize(strCanSendTo, vecCanSendTo, ",");
-         setCanSendTo.insert(std::begin(vecCanSendTo),
-                             std::end(vecCanSendTo));
-         m_mapRobots.emplace(std::piecewise_construct,
-                             std::forward_as_tuple(strId),
-                             std::forward_as_tuple(strController, setCanSendTo));
-      }
+      
+      if(b_complet_network){
+		  // --- THIS IMPLEMENTS A COMPLETE NETWORK ---
+		  for(itPiPuck = itPiPuck.begin(&GetNode(t_tree,"robots"));
+			  itPiPuck != itPiPuck.end();
+			  ++itPiPuck) {
+			 GetNodeAttribute(*itPiPuck, "id", strId);
+			 vecCanSendTo.push_back(strId);
+		  }
+		  for(itPiPuck = itPiPuck.begin(&GetNode(t_tree,"robots"));
+			  itPiPuck != itPiPuck.end();
+			  ++itPiPuck) {
+			 GetNodeAttribute(*itPiPuck, "id", strId);
+			 GetNodeAttribute(*itPiPuck, "controller", strController);
+			 GetNodeAttribute(*itPiPuck, "can_send_to", strCanSendTo);
+			 setCanSendTo.clear();
+			 setCanSendTo.insert(std::begin(vecCanSendTo),
+								 std::end(vecCanSendTo));
+			 m_mapRobots.emplace(std::piecewise_construct,
+								 std::forward_as_tuple(strId),
+								 std::forward_as_tuple(strController, setCanSendTo));
+		  }
+		  // --------------------------------------------
+	  }
+	  else{
+		  // --- THIS IMPLEMENTS A NETWORK SET IN THE ARGOS FILE ---
+		  for(itPiPuck = itPiPuck.begin(&GetNode(t_tree,"robots"));
+			  itPiPuck != itPiPuck.end();
+			  ++itPiPuck) {
+			 GetNodeAttribute(*itPiPuck, "id", strId);
+			 GetNodeAttribute(*itPiPuck, "controller", strController);
+			 GetNodeAttribute(*itPiPuck, "can_send_to", strCanSendTo);
+			 vecCanSendTo.clear();
+			 setCanSendTo.clear();
+			 Tokenize(strCanSendTo, vecCanSendTo, ",");
+			 setCanSendTo.insert(std::begin(vecCanSendTo),
+								 std::end(vecCanSendTo));
+			 m_mapRobots.emplace(std::piecewise_construct,
+								 std::forward_as_tuple(strId),
+								 std::forward_as_tuple(strController, setCanSendTo));
+		  }
+		  //~ // -------------------------------------------------------
+	  }
+      
+		m_pcRNG = CRandom::CreateRNG("argos");
+    
+    for(size_t i = 0; i < m_vecCells.size(); i++) {
+		m_vecCells[i] = (m_pcRNG->Uniform(CRange<Real>(0.0, 1.0)) > 1.0);
+	}  
    }
 
    /****************************************/
@@ -146,6 +183,10 @@ namespace argos {
       }
       /* clear all cells and mark the floor as changed */
       m_vecCells.assign(m_vecCells.size(), false);
+    
+    for(size_t i = 0; i < m_vecCells.size(); i++) {
+		m_vecCells[i] = (m_pcRNG->Uniform(CRange<Real>(0.0, 1.0)) > 0.5);
+	}   
       GetSpace().GetFloorEntity().SetChanged();
       /* zero out the construction events */
       m_vecConstructionEvents.assign(m_vecConstructionEvents.size(), 0);
@@ -186,6 +227,7 @@ namespace argos {
    /****************************************/
 
    void CDTAAbstractLoopFunctions::PostStep() {
+	   int time = GetSpace().GetSimulationClock();
       /* total number of robots */
       UInt32 unRobotsCount = m_mapRobots.size();
       /* count the robots that are foraging */
@@ -198,54 +240,67 @@ namespace argos {
       );
       /* calculate the robots that are building */
       UInt32 unBuildingRobotsCount = unRobotsCount - unForagingRobotsCount;
+      UInt32 unEstimatingRobotsCount = 0;
       /* calculate the number of shaded cells */
       UInt32 unShadedCells =
             std::count(std::begin(m_vecCells), std::end(m_vecCells), true);
-      /* get the current estimate value from each robot */
-      for(std::pair<const std::string, SPiPuck>& c_pair : m_mapRobots) {
-         SPiPuck& sPiPuck = c_pair.second;
-         const std::string& strId = c_pair.first;
-         /* only consider robots currently performing the construction task */
-         if(sPiPuck.Entity != nullptr) {
-            const std::string& strEstimateBuffer =
-               sPiPuck.Entity->GetDebugEntity().GetBuffer("set_estimate");
-            std::stringstream cEstimate(strEstimateBuffer);
-            Real fEstimate = 0.0;
-            cEstimate >> fEstimate;
-            LOGERR << strId << ": estimate = " << fEstimate << std::endl;
-         }
-      }
-      /* write output */
-      if(m_cOutputFile.is_open() && m_cOutputFile.good()) {
-         m_cOutputFile << unForagingRobotsCount << ","
-                       << unBuildingRobotsCount << ","
-                       << unShadedCells << std::endl;
-      }
-      /* handle cell shading */
-      if(m_unStepsUntilShadeCell == 0) {
-         CRange<UInt32> cXRange(0, m_arrGridLayout[0]);
-         CRange<UInt32> cYRange(0, m_arrGridLayout[1]);
-         if(unShadedCells < m_arrGridLayout[0] * m_arrGridLayout[1]) {
-            for(;;) {
-               UInt32 unX = GetSimulator().GetRNG()->Uniform(cXRange);
-               UInt32 unY = GetSimulator().GetRNG()->Uniform(cYRange);
-               if(!m_vecCells.at(unX + m_arrGridLayout[0] * unY)) {
-                  m_vecCells[unX + m_arrGridLayout[0] * unY] = true;
-                  GetSpace().GetFloorEntity().SetChanged();
-                  /* calculate the mean time until the next block should appear */
-                  Real fMean =
-                     m_fForagingDelayCoefficient * (unRobotsCount - unForagingRobotsCount);
-                  /* get the number of timesteps until the next block appears following the
-                     poisson distribution */
-                  m_unStepsUntilShadeCell = GetSimulator().GetRNG()->Poisson(fMean);
-                  break;
-               }
-            }
-         }
-      }
-      else {
-         m_unStepsUntilShadeCell -= 1;
-      }
+      /* get the current estimate value from each building robot */
+	  Real fEstimate = 0.0, avg_fEstimate = 0.0, fDeviation = 0.0, avg_fDeviation = 0.0;
+	  std::string strTask;
+      if(unBuildingRobotsCount > 0){
+		  for(std::pair<const std::string, SPiPuck>& c_pair : m_mapRobots) {
+			 SPiPuck& sPiPuck = c_pair.second;
+			 //const std::string& strId = c_pair.first;
+			 /* only consider robots currently performing the construction task */
+			 if(sPiPuck.Entity != nullptr) {
+				const std::string& strSetTaskBuffer =
+				   sPiPuck.Entity->GetDebugEntity().GetBuffer("set_task");
+				std::stringstream cTask(strSetTaskBuffer);
+				cTask >> strTask;
+				
+				if(strTask=="exploring"){
+					const std::string& strEstimateBuffer =
+					   sPiPuck.Entity->GetDebugEntity().GetBuffer("set_estimate");
+					std::stringstream cEstimate(strEstimateBuffer);
+					cEstimate >> fEstimate;
+					avg_fEstimate += fEstimate;
+					
+					const std::string& strDeviationBuffer =
+					   sPiPuck.Entity->GetDebugEntity().GetBuffer("set_gradient");
+					std::stringstream cDeviation(strDeviationBuffer);
+					cDeviation >> fDeviation;
+					avg_fDeviation += fDeviation;
+					unEstimatingRobotsCount++;
+				}
+			 }
+		  }
+	  }
+      
+	  UInt32 unTotalConstructionEvents = 0;
+	  for(UInt32 un_count : m_vecConstructionEvents) {
+		 unTotalConstructionEvents += un_count;
+	  }
+      // --- print the results ---
+      if(unEstimatingRobotsCount > 0){
+		  avg_fEstimate = avg_fEstimate/(1.0*unEstimatingRobotsCount);
+		  avg_fDeviation = avg_fDeviation/(1.0*unEstimatingRobotsCount);
+		  LOGERR << unForagingRobotsCount << "\t"
+						   << unBuildingRobotsCount << "\t"
+						   << avg_fEstimate << "\t"
+						   << avg_fDeviation << "\t"
+						   << unTotalConstructionEvents << "\t"
+						   << unShadedCells/(1.0*625) << std::endl;
+		  /* write output */
+		  if(m_cOutputFile.is_open() && m_cOutputFile.good()) {
+			 m_cOutputFile << unForagingRobotsCount << "\t"
+						   << unBuildingRobotsCount << "\t"
+						   << avg_fEstimate << "\t"
+						   << avg_fDeviation << "\t"
+						   << unTotalConstructionEvents << "\t"
+						   << unShadedCells/(1.0*625) << std::endl;
+		  }
+	  }
+	  
       /* handle cell unshading */
       /* get the number of block attachments for this step */
       UInt32& unConstructionEvents =
@@ -271,32 +326,31 @@ namespace argos {
                   if(unTotalConstructionEvents < m_unConstructionLimit) {
                      unConstructionEvents += 1;
                      m_vecCells[unCellIndex] = false;
-                     GetSpace().GetFloorEntity().SetChanged();
+                  GetSpace().GetFloorEntity().SetChanged();
                   }
                }
                sPiPuck.PreviousX = unX;
                sPiPuck.PreviousY = unY;
-            }
-         }
-      }
+			 }
+		  }
+	  }
       /* find the robots that want to change to the foraging task */
       for(std::pair<const std::string, SPiPuck>& c_pair : m_mapRobots) {
          SPiPuck& sPiPuck = c_pair.second;
-         const std::string& strId = c_pair.first;
+         //~ const std::string& strId = c_pair.first;
          /* only consider robots currently performing the construction task */
          if(sPiPuck.Entity != nullptr) {
-            /* to keep things simple: a non-empty loop_functions buffer indicates
+            /* to keep things simple: a non-empty set_task buffer indicates
                that the controller wants to swap to the foraging task */
-            const std::string& strLoopFunctionsBuffer =
+            const std::string& strSetTaskBuffer =
                sPiPuck.Entity->GetDebugEntity().GetBuffer("set_task");
-            if(!strLoopFunctionsBuffer.empty()) {
+				std::stringstream cTask(strSetTaskBuffer);
+				cTask >> strTask;
+            if(strTask=="foraging") {
                RemoveEntity(*sPiPuck.Entity);
                sPiPuck.Entity = nullptr;
                sPiPuck.StepsUntilReturnToConstructionTask =
                   GetSimulator().GetRNG()->Poisson(m_fForagingDurationMean);
-               std::cerr << strId << ": construction -> foraging ("
-                         << sPiPuck.StepsUntilReturnToConstructionTask
-                         << ")" << std::endl;
                // START HACK
                GetSimulator().GetMedium<CRadioMedium>("wifi").Update();
                // END HACK
@@ -311,7 +365,7 @@ namespace argos {
          if(sPiPuck.Entity == nullptr) {
             if(sPiPuck.StepsUntilReturnToConstructionTask == 0) {
                /* respawn robot with random position and orientation */
-               std::cerr << strId << ": foraging -> construction" << std::endl;
+               //~ std::cerr << strId << ": foraging -> construction" << std::endl;
                CRange<Real> cXRange(0.05, cArenaSize.GetX() - 0.05);
                CRange<Real> cYRange(0.05, cArenaSize.GetY() - 0.05);
                for(;;) {
@@ -331,7 +385,6 @@ namespace argos {
                      /* initialize the previous cell coordinates of the new robot */
                      sPiPuck.PreviousX = static_cast<UInt32>(fX * m_arrGridLayout.at(0) / cArenaSize.GetX());
                      sPiPuck.PreviousY = static_cast<UInt32>(fY * m_arrGridLayout.at(1) / cArenaSize.GetY());
-                     /* configure wifi actuator */
                      CCI_Controller& cController =
                         sPiPuck.Entity->GetControllableEntity().GetController();
                      CDTAAbstractWifiActuator* pcWifiActuator =
@@ -343,6 +396,39 @@ namespace argos {
                      break;
                   }
                }
+               if(time > 5 && true){
+               // INSTANTLY SHADE A RANDOM CELL 
+				 CRange<UInt32> cXRangeInt(0, std::round(m_arrGridLayout[0]/4.0));
+				 CRange<UInt32> cYRangeInt(0, std::round(m_arrGridLayout[1]/4.0));
+				 int count_tries = 0;
+				 if(unShadedCells < m_arrGridLayout[0] * m_arrGridLayout[1] && true) {
+					for(;;) {
+					   UInt32 unX = GetSimulator().GetRNG()->Uniform(cXRangeInt);
+					   UInt32 unY = GetSimulator().GetRNG()->Uniform(cYRangeInt);
+					   count_tries++;
+					   if(!m_vecCells.at(unX + m_arrGridLayout[0] * unY)) {
+						  m_vecCells[unX + m_arrGridLayout[0] * unY] = true;
+						  break;
+					   }
+					   else if(count_tries > 250){
+						   break;
+					   }
+					}
+				 }
+				 if(unShadedCells < m_arrGridLayout[0] * m_arrGridLayout[1] && count_tries > 250) {
+					CRange<UInt32> cXRangeFullInt(0, std::round(m_arrGridLayout[0]));
+					CRange<UInt32> cYRangeFullInt(0, std::round(m_arrGridLayout[1]));
+					for(;;) {
+					   UInt32 unX = GetSimulator().GetRNG()->Uniform(cXRangeFullInt);
+					   UInt32 unY = GetSimulator().GetRNG()->Uniform(cYRangeFullInt);
+					   if(!m_vecCells.at(unX + m_arrGridLayout[0] * unY)) {
+						  m_vecCells[unX + m_arrGridLayout[0] * unY] = true;
+						  break;
+					   }
+					}
+				 }
+			   }
+              GetSpace().GetFloorEntity().SetChanged();
             }
             else {
                /* decrement counter */

@@ -87,7 +87,7 @@
         <pipuck_rangefinders implementation="default" show_rays="true" />
         <wifi implementation="default" show_rays="true" />
       </sensors>
-      <params script="/home/irausch/git_repos/argos3-dta/build/experiment/pipuck_ilja.lua" />
+      <params script="/home/irausch/git_repos/argos3-dta/build/experiment/pipuck.lua" />
     </lua_controller>
 
   </controllers>
@@ -102,8 +102,8 @@
          * construction_limit: is the maximum number of blocks that can be attached to a structure
               every second (the limit is imposed on how many blocks have been placed in the last second).
   -->
-  <loop_functions library="/home/irausch/git_repos/argos3-dta/build/loop_functions/libdta_abstract_loop_functions_ilja"
-                  label="dta_abstract_loop_functions_ilja"
+  <loop_functions library="/home/irausch/git_repos/argos3-dta/build/loop_functions/libdta_abstract_loop_functions"
+                  label="dta_abstract_loop_functions"
                   output="data.csv">
     <parameters grid_layout="50,50" foraging_delay_coeff="1" foraging_duration_mean="100" construction_limit="1000" />
     <robots>      
