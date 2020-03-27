@@ -4,7 +4,7 @@
   <!-- General configuration -->
   <framework>
     <system threads="0" />
-    <experiment length="10000" ticks_per_second="5" random_seed="1" />
+    <experiment length="100" ticks_per_second="5" random_seed="1" />
   </framework>
 
   <!-- *********************** -->
@@ -50,6 +50,7 @@
   <!-- ****************** -->
   <!-- * Visualization  * -->
   <!-- ******************
+ -->
 
   <visualization>
     <qt-opengl lua_editor="false" show_boundary="false">
@@ -66,7 +67,6 @@
       </camera>
     </qt-opengl>
   </visualization>
- -->
   
   <!-- Controllers -->
   <controllers>
@@ -79,12 +79,13 @@
           <interface id="set_gradient" />
           <interface id="set_state" />
         </debug>
-        <wifi implementation="dta_abstract" />
+        <!--wifi implementation="dta_abstract" /-->
+        <wifi implementation="dta_proximity" range="0.5" />
       </actuators>
       <sensors>
         <pipuck_ground implementation="default" show_rays="false" />
         <pipuck_differential_drive implementation="default" />
-        <pipuck_rangefinders implementation="default" show_rays="true" />
+        <pipuck_rangefinders implementation="default" show_rays="false" />
         <wifi implementation="default" show_rays="true" />
       </sensors>
       <params script="/home/irausch/git_repos/argos3-dta/build/experiment/pipuck.lua" />
@@ -105,7 +106,7 @@
   <loop_functions library="/home/irausch/git_repos/argos3-dta/build/loop_functions/libdta_abstract_loop_functions"
                   label="dta_abstract_loop_functions"
                   output="data.csv">
-    <parameters grid_layout="25,25" foraging_delay_coeff="1" foraging_duration_mean="100" construction_limit="1000" />
+    <parameters grid_layout="25,25" foraging_delay_coeff="1" foraging_duration_mean="100" construction_limit="1000" complete_network="false"/>
     <robots>
       <pipuck id="pipuck0" controller="pipuck" can_send_to="pipuck1,pipuck7,pipuck3" />
       <pipuck id="pipuck1" controller="pipuck" can_send_to="pipuck10,pipuck5,pipuck9" />
@@ -157,16 +158,6 @@
       <pipuck id="pipuck47" controller="pipuck" can_send_to="pipuck16,pipuck8,pipuck10" />
       <pipuck id="pipuck48" controller="pipuck" can_send_to="pipuck15,pipuck19,pipuck1" />
       <pipuck id="pipuck49" controller="pipuck" can_send_to="pipuck4,pipuck18,pipuck3" />
-      <pipuck id="pipuck50" controller="pipuck" can_send_to="pipuck11,pipuck17,pipuck13" />
-      <pipuck id="pipuck51" controller="pipuck" can_send_to="pipuck10,pipuck15,pipuck19" />
-      <pipuck id="pipuck52" controller="pipuck" can_send_to="pipuck11,pipuck13,pipuck15" />
-      <pipuck id="pipuck53" controller="pipuck" can_send_to="pipuck11,pipuck18,pipuck8" />
-      <pipuck id="pipuck54" controller="pipuck" can_send_to="pipuck13,pipuck8,pipuck0" />
-      <pipuck id="pipuck55" controller="pipuck" can_send_to="pipuck1,pipuck16,pipuck4" />
-      <pipuck id="pipuck56" controller="pipuck" can_send_to="pipuck17,pipuck19,pipuck14" />
-      <pipuck id="pipuck57" controller="pipuck" can_send_to="pipuck16,pipuck8,pipuck10" />
-      <pipuck id="pipuck58" controller="pipuck" can_send_to="pipuck15,pipuck19,pipuck1" />
-      <pipuck id="pipuck59" controller="pipuck" can_send_to="pipuck4,pipuck18,pipuck3" />
     </robots>
   </loop_functions>
 

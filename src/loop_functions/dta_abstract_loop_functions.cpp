@@ -58,8 +58,82 @@ namespace argos {
          m_setCanSendTo = set_can_send_to;
       }
 
+      /****************************************/
+      /****************************************/
+
+
    private:
       std::set<std::string> m_setCanSendTo;
+   };
+
+   /****************************************/
+   /****************************************/
+   
+   class CDTAProximityWifiActuator : public CWifiDefaultActuator {
+   public:
+      class CTxOperation : public CPositionalIndex<CRadioEntity>::COperation {
+      public:
+         CTxOperation(const CRadioEntity& c_tx_radio,
+                      const std::list<CByteArray>& lst_messages,
+                      Real f_range) :
+            m_cTxRadio(c_tx_radio),
+            m_lstMessages(lst_messages),
+            m_fRange(f_range) {}
+
+         virtual bool operator()(CRadioEntity& c_rx_radio) {
+            if(&c_rx_radio != &m_cTxRadio) {
+               const CVector3& cRxRadioPosition = c_rx_radio.GetPosition();
+               const CVector3& cTxRadioPosition = m_cTxRadio.GetPosition();
+               Real fDistance = (cRxRadioPosition - cTxRadioPosition).Length();
+               if(fDistance < m_fRange) {
+                  for(const CByteArray& c_message : m_lstMessages) {
+                     c_rx_radio.ReceiveData(cTxRadioPosition, c_message);
+                  }
+               }
+            }
+            return true;
+         }
+
+      private:
+         const CRadioEntity& m_cTxRadio;
+         const std::list<CByteArray>& m_lstMessages;
+         Real m_fRange;
+      };
+
+      /****************************************/
+      /****************************************/
+
+      virtual void Init(TConfigurationNode& t_tree) override {
+         GetNodeAttribute(t_tree, "range", m_fRange);
+         /* initialize base class */
+         CWifiDefaultActuator::Init(t_tree);
+      }
+
+      /****************************************/
+      /****************************************/
+
+      virtual void Update() override {
+         if(!m_lstMessages.empty()) {
+            /* Create operation instance */
+            CTxOperation cTxOperation(*m_pcRadioEntity, m_lstMessages, m_fRange);
+            /* Calculate the range of the transmitting radio */
+            CVector3 cTxRange(m_fRange, m_fRange, m_fRange);
+            /* Get positional index */
+            CPositionalIndex<CRadioEntity>* pcRadioIndex =
+               &(m_pcRadioEntity->GetMedium().GetIndex());
+            /* Transmit the data to receiving radios in the space */
+            pcRadioIndex->ForEntitiesInBoxRange(m_pcRadioEntity->GetPosition(), cTxRange, cTxOperation);
+            /* Flush data from the control interface */
+            m_lstMessages.clear();
+         }
+      }
+
+      /****************************************/
+      /****************************************/
+
+   private:
+      Real m_fRange;
+
    };
 
    /****************************************/
@@ -70,6 +144,15 @@ namespace argos {
                      "Michael Allwright [allsey87@gmail.com]",
                      "1.0",
                      "An abstract wifi actuator for the DTA experiments.",
+                     "This actuator sends messages over wifi.",
+                     "Usable"
+   );
+   
+   REGISTER_ACTUATOR(CDTAProximityWifiActuator,
+                     "wifi", "dta_proximity",
+                     "Michael Allwright [allsey87@gmail.com]",
+                     "1.0",
+                     "A proximity-based wifi actuator for the DTA experiments.",
                      "This actuator sends messages over wifi.",
                      "Usable"
    );
@@ -387,9 +470,17 @@ namespace argos {
                      sPiPuck.PreviousY = static_cast<UInt32>(fY * m_arrGridLayout.at(1) / cArenaSize.GetY());
                      CCI_Controller& cController =
                         sPiPuck.Entity->GetControllableEntity().GetController();
-                     CDTAAbstractWifiActuator* pcWifiActuator =
-                        cController.GetActuator<CDTAAbstractWifiActuator>("wifi");
-                     pcWifiActuator->SetCanSendTo(sPiPuck.CanSendTo);
+                     //~ CDTAAbstractWifiActuator* pcWifiActuator =
+                        //~ cController.GetActuator<CDTAAbstractWifiActuator>("wifi");
+                     //~ pcWifiActuator->SetCanSendTo(sPiPuck.CanSendTo);
+                     /* try to set the CanSendTo attribute of the CDTAAbstractWifiActuator. This will fail
+                        silently if we are using a different actuator, e.g., CDTAProximityWifiActuator */
+                     try {
+                        CDTAAbstractWifiActuator* pcWifiActuator =
+                           cController.GetActuator<CDTAAbstractWifiActuator>("wifi");
+                        pcWifiActuator->SetCanSendTo(sPiPuck.CanSendTo);
+                     }
+                     catch(CARGoSException& ex) {}
                      // START HACK
                      GetSimulator().GetMedium<CRadioMedium>("wifi").Update();
                      // END HACK
@@ -398,8 +489,8 @@ namespace argos {
                }
                if(time > 5 && true){
                // INSTANTLY SHADE A RANDOM CELL 
-				 CRange<UInt32> cXRangeInt(0, std::round(m_arrGridLayout[0]/4.0));
-				 CRange<UInt32> cYRangeInt(0, std::round(m_arrGridLayout[1]/4.0));
+				 CRange<UInt32> cXRangeInt(0, std::round(m_arrGridLayout[0]/2.0));
+				 CRange<UInt32> cYRangeInt(0, std::round(m_arrGridLayout[1]/2.0));
 				 int count_tries = 0;
 				 if(unShadedCells < m_arrGridLayout[0] * m_arrGridLayout[1] && true) {
 					for(;;) {
