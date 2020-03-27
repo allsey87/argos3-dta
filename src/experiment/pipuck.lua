@@ -31,7 +31,13 @@ function init()
    
 		tot_expl_time = robot.random.exponential(robot.constants.m2),
 		tot_diss_time = robot.random.exponential(robot.constants.m),
+		
+		--[[ create an entry in the robot table to store
+			the robot's degree (i.e. number of neighbors 
+			the robot is communicating with) ]]--
+		degree = 0,
    }
+   --~ log(string.format("a"))
    
    --[[ create an entry in the robot table to store
         the obstacle avoidance behavior tree ]]--
@@ -55,15 +61,16 @@ function init()
 		  -- action leaf, update the current robot accumulator info based on its neighbors
 		  function()
 		  -- local variables to calculate the average over the neighborhood
-			local average_est, average_dev, num_neighbors = 0.0, 0.0, 0.0
+			local average_est, average_dev = 0.0, 0.0
+			robot.variables.degree = 0
 			for index, message in ipairs(robot.wifi.rx_data) do
 			  average_est = average_est + message.est
 			  average_dev = average_dev + message.dev
-			  num_neighbors = num_neighbors + 1.0
+			  robot.variables.degree = robot.variables.degree + 1.0
 			end
-			if num_neighbors > 0 then
-				average_est = average_est/num_neighbors 
-				average_dev = average_dev/num_neighbors 
+			if robot.variables.degree > 0 then
+				average_est = average_est/robot.variables.degree 
+				average_dev = average_dev/robot.variables.degree 
 				robot.variables.estimate = robot.variables.estimate + 0.5 * (average_est - robot.variables.estimate)
 				robot.variables.deviation = robot.variables.deviation + 0.5 * (average_dev - robot.variables.deviation)
 			end
@@ -170,9 +177,12 @@ function step()
    local estimate = string.format("%3.5f", robot.variables.estimate)
    estimate = estimate:gsub(",", ".")
    robot.debug.set_estimate( estimate )
-   local gradient = string.format("%3.5f", robot.variables.deviation)
-   gradient = gradient:gsub(",", ".")
-   robot.debug.set_gradient( gradient )
+   local deviation = string.format("%3.5f", robot.variables.deviation)
+   deviation = deviation:gsub(",", ".")
+   robot.debug.set_deviation( deviation )
+   local degree = string.format("%3.5f", robot.variables.degree)
+   degree = degree:gsub(",", ".")
+   robot.debug.set_degree( degree )
 end
 
 function reset() end

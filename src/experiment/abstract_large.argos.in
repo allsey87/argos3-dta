@@ -76,10 +76,11 @@
         <debug implementation="default">
           <interface id="set_task" />
           <interface id="set_estimate" />
-          <interface id="set_gradient" />
+          <interface id="set_deviation" />
           <interface id="set_state" />
+          <interface id="set_degree" />
         </debug>
-        <wifi implementation="dta_proximity" range="0.5" />
+        <wifi implementation="dta_proximity" range="1.0" />
       </actuators>
       <sensors>
         <pipuck_ground implementation="default" show_rays="false" />

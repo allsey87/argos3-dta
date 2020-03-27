@@ -7,7 +7,7 @@
 #include <argos3/plugins/robots/generic/simulator/wifi_default_actuator.h>
 #include <argos3/plugins/robots/pi-puck/simulator/pipuck_entity.h>
 
-#define CSV_HEADER "\"foraging robots\"\t\"building robots\"\t\"average estimate\"\t\"average deviation\"\t\"construction events\"\t\"blocks in cache\""
+#define CSV_HEADER "\"foraging robots\"\t\"building robots\"\t\"average estimate\"\t\"average deviation\"\t\"construction events\"\t\"blocks in cache\"\t\"average degree\""
 
 namespace argos {
 
@@ -328,7 +328,7 @@ namespace argos {
       UInt32 unShadedCells =
             std::count(std::begin(m_vecCells), std::end(m_vecCells), true);
       /* get the current estimate value from each building robot */
-	  Real fEstimate = 0.0, avg_fEstimate = 0.0, fDeviation = 0.0, avg_fDeviation = 0.0;
+	  Real fEstimate = 0.0, avg_fEstimate = 0.0, fDeviation = 0.0, avg_fDeviation = 0.0, fDegree = 0.0, avg_fDegree = 0.0;
 	  std::string strTask;
       if(unBuildingRobotsCount > 0){
 		  for(std::pair<const std::string, SPiPuck>& c_pair : m_mapRobots) {
@@ -349,10 +349,17 @@ namespace argos {
 					avg_fEstimate += fEstimate;
 					
 					const std::string& strDeviationBuffer =
-					   sPiPuck.Entity->GetDebugEntity().GetBuffer("set_gradient");
+					   sPiPuck.Entity->GetDebugEntity().GetBuffer("set_deviation");
 					std::stringstream cDeviation(strDeviationBuffer);
 					cDeviation >> fDeviation;
 					avg_fDeviation += fDeviation;
+					
+					const std::string& strDegreeBuffer =
+					   sPiPuck.Entity->GetDebugEntity().GetBuffer("set_degree");
+					std::stringstream cDegree(strDegreeBuffer);
+					cDegree >> fDegree;
+					avg_fDegree += fDegree;
+					
 					unEstimatingRobotsCount++;
 				}
 			 }
@@ -367,12 +374,15 @@ namespace argos {
       if(unEstimatingRobotsCount > 0){
 		  avg_fEstimate = avg_fEstimate/(1.0*unEstimatingRobotsCount);
 		  avg_fDeviation = avg_fDeviation/(1.0*unEstimatingRobotsCount);
+		  avg_fDegree = avg_fDegree/(1.0*unEstimatingRobotsCount);
 		  LOGERR << unForagingRobotsCount << "\t"
 						   << unBuildingRobotsCount << "\t"
 						   << avg_fEstimate << "\t"
 						   << avg_fDeviation << "\t"
 						   << unTotalConstructionEvents << "\t"
-						   << unShadedCells/(1.0*625) << std::endl;
+						   << unShadedCells/(1.0*625) << "\t"
+						   << avg_fDegree 
+						   << std::endl;
 		  /* write output */
 		  if(m_cOutputFile.is_open() && m_cOutputFile.good()) {
 			 m_cOutputFile << unForagingRobotsCount << "\t"
@@ -380,7 +390,9 @@ namespace argos {
 						   << avg_fEstimate << "\t"
 						   << avg_fDeviation << "\t"
 						   << unTotalConstructionEvents << "\t"
-						   << unShadedCells/(1.0*625) << std::endl;
+						   << unShadedCells/(1.0*625) << "\t"
+						   << avg_fDegree 
+						   << std::endl;
 		  }
 	  }
 	  
