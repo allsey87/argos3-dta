@@ -1,0 +1,157 @@
+<?xml version="1.0" ?>
+<argos-configuration>
+
+  <!-- General configuration -->
+  <framework>
+    <system threads="0" />
+    <experiment length="200" ticks_per_second="5" random_seed="1" />
+  </framework>
+
+  <!-- *********************** -->
+  <!-- * Arena configuration * -->
+  <!-- *********************** -->
+  <arena size="6, 6, 1" center="3, 3, 0">
+    <!-- update the floor using the loop functions -->
+    <floor id="floor" source="loop_functions" pixels_per_meter="100" />
+    <!-- add the arena walls -->
+    <box id="north" size="0.025,5.975,0.075" movable="false">
+      <body position="5.9875,3.0125,0"  orientation="0,0,0" />
+    </box>
+    <box id="east" size="5.975,0.025,0.075" movable="false">
+      <body position="3.0125,0.0125,0"  orientation="0,0,0" />
+    </box>
+    <box id="south" size="0.025,5.975,0.075" movable="false">
+      <body position="0.0125,2.9875,0"  orientation="0,0,0" />
+    </box>
+    <box id="west" size="5.975,0.025,0.075" movable="false">
+      <body position="2.9875,5.9875,0"  orientation="0,0,0" />
+    </box>
+  </arena>
+
+  <!-- ******************* -->
+  <!-- * Physics engines * -->
+  <!-- ******************* -->
+  <physics_engines>
+    <dynamics3d id="dyn3d" iterations="10" default_friction="1">
+      <gravity g="9.8" />
+      <floor friction="1" />
+    </dynamics3d>
+  </physics_engines>
+
+  <!-- ********* -->
+  <!-- * Media * -->
+  <!-- ********* -->
+  <media>
+    <!--directional_led id="directional_leds" index="grid" grid_size="20,20,20"/-->
+    <radio id="wifi" index="grid" grid_size="50,50,50" />
+    <tag id="tags" index="grid" grid_size="50,50,50" />
+  </media>
+
+  <!-- ****************** -->
+  <!-- * Visualization  * -->
+  <!-- ******************
+
+  <visualization>
+    <qt-opengl lua_editor="false" show_boundary="false">
+      <camera>
+        <placement idx="0" position="3,3,5" look_at="3,3,0.125" up="1,0,0" lens_focal_length="20" />
+        <placement idx="1" position=" 1.5,-4.5,2" look_at="1.5,1.5,0.5" lens_focal_length="57" />
+        <placement idx="2" position=" 8.5,-5.5,5" look_at="1.5,1.5,0.5" lens_focal_length="92" />
+        <placement idx="3" position=" 7.5, 1.5,2" look_at="1.5,1.5,0.5" lens_focal_length="57" />
+        <placement idx="4" position=" 8.5, 8.5,5" look_at="1.5,1.5,0.5" lens_focal_length="92" />
+        <placement idx="5" position=" 1.5, 7.5,2" look_at="1.5,1.5,0.5" lens_focal_length="57" />
+        <placement idx="6" position="-5.5, 8.5,5" look_at="1.5,1.5,0.5" lens_focal_length="92" />
+        <placement idx="7" position="-4.5, 1.5,2" look_at="1.5,1.5,0.5" lens_focal_length="57" />
+        <placement idx="8" position="-5.5,-5.5,5" look_at="1.5,1.5,0.5" lens_focal_length="92" />
+      </camera>
+    </qt-opengl>
+  </visualization>
+ -->
+  
+  <!-- Controllers -->
+  <controllers>
+    <lua_controller id="pipuck">
+      <actuators>
+        <pipuck_differential_drive implementation="default" />
+        <debug implementation="default">
+          <interface id="set_task" />
+          <interface id="set_estimate" />
+          <interface id="set_deviation" />
+          <interface id="set_state" />
+          <interface id="set_degree" />
+        </debug>
+        <wifi implementation="dta_proximity" range="1.0" />
+      </actuators>
+      <sensors>
+        <pipuck_ground implementation="default" show_rays="false" />
+        <pipuck_differential_drive implementation="default" />
+        <pipuck_rangefinders implementation="default" show_rays="false" />
+        <wifi implementation="default" show_rays="true" />
+      </sensors>
+      <params script="/users/irausch/argos3-dta/src/experiment/pipuck.lua" />
+    </lua_controller>
+
+  </controllers>
+
+  <!-- Loop functions
+     parameters
+         * foraging_delay_coeff: the delay between the spawning of two blocks follows a possion 
+           distribution whose mean is calculated as:
+              foraging_mean_delay = foraging_delay_coeff * (total_robots - robots_foraging)
+         * foraging_duration_mean: the amount of time that a robot spends foraging follows a 
+              possion distribution whose mean is: foraging_duration_mean
+         * construction_limit: is the maximum number of blocks that can be attached to a structure
+              every second (the limit is imposed on how many blocks have been placed in the last second).
+  -->
+  <loop_functions library="/users/irausch/argos3-dta/build/loop_functions/libdta_abstract_loop_functions"
+                  label="dta_abstract_loop_functions"
+                  output="data.csv">
+    <parameters grid_layout="25,25" foraging_delay_coeff="1" foraging_duration_mean="100" construction_limit="1000" complete_network="false"/>
+    <robots>      
+		
+			<pipuck id="pipuck0" controller="pipuck" can_send_to="pipuck32,pipuck3,pipuck9,pipuck12,pipuck25,pipuck40" />
+	<pipuck id="pipuck1" controller="pipuck" can_send_to="pipuck26,pipuck30,pipuck21,pipuck33,pipuck49" />
+	<pipuck id="pipuck10" controller="pipuck" can_send_to="pipuck28,pipuck23,pipuck26,pipuck38" />
+	<pipuck id="pipuck11" controller="pipuck" can_send_to="pipuck28,pipuck49,pipuck42" />
+	<pipuck id="pipuck12" controller="pipuck" can_send_to="pipuck0,pipuck4,pipuck29,pipuck47" />
+	<pipuck id="pipuck13" controller="pipuck" can_send_to="pipuck9,pipuck19,pipuck16" />
+	<pipuck id="pipuck14" controller="pipuck" can_send_to="pipuck6,pipuck32,pipuck39,pipuck49" />
+	<pipuck id="pipuck15" controller="pipuck" can_send_to="pipuck17,pipuck27,pipuck18,pipuck26" />
+	<pipuck id="pipuck16" controller="pipuck" can_send_to="pipuck13,pipuck9" />
+	<pipuck id="pipuck17" controller="pipuck" can_send_to="pipuck15,pipuck8,pipuck7,pipuck21,pipuck19" />
+	<pipuck id="pipuck18" controller="pipuck" can_send_to="pipuck15,pipuck23" />
+	<pipuck id="pipuck19" controller="pipuck" can_send_to="pipuck13,pipuck17,pipuck30,pipuck23" />
+	<pipuck id="pipuck2" controller="pipuck" can_send_to="pipuck33,pipuck48,pipuck3,pipuck6" />
+	<pipuck id="pipuck20" controller="pipuck" can_send_to="pipuck21,pipuck22" />
+	<pipuck id="pipuck21" controller="pipuck" can_send_to="pipuck1,pipuck17,pipuck20,pipuck37,pipuck36" />
+	<pipuck id="pipuck22" controller="pipuck" can_send_to="pipuck20,pipuck7,pipuck9" />
+	<pipuck id="pipuck23" controller="pipuck" can_send_to="pipuck10,pipuck18,pipuck19,pipuck25" />
+	<pipuck id="pipuck24" controller="pipuck" can_send_to="pipuck48,pipuck46,pipuck47" />
+	<pipuck id="pipuck25" controller="pipuck" can_send_to="pipuck0,pipuck23,pipuck5" />
+	<pipuck id="pipuck26" controller="pipuck" can_send_to="pipuck1,pipuck10,pipuck15,pipuck28,pipuck37" />
+	<pipuck id="pipuck27" controller="pipuck" can_send_to="pipuck15,pipuck42,pipuck34" />
+	<pipuck id="pipuck28" controller="pipuck" can_send_to="pipuck10,pipuck11,pipuck26,pipuck33" />
+	<pipuck id="pipuck29" controller="pipuck" can_send_to="pipuck12,pipuck33,pipuck37,pipuck31" />
+	<pipuck id="pipuck3" controller="pipuck" can_send_to="pipuck0,pipuck2,pipuck45,pipuck4,pipuck40,pipuck48" />
+	<pipuck id="pipuck30" controller="pipuck" can_send_to="pipuck1,pipuck19,pipuck47,pipuck5" />
+	<pipuck id="pipuck31" controller="pipuck" can_send_to="pipuck29,pipuck5,pipuck37,pipuck38,pipuck44" />
+	<pipuck id="pipuck32" controller="pipuck" can_send_to="pipuck0,pipuck14,pipuck39,pipuck42" />
+	<pipuck id="pipuck33" controller="pipuck" can_send_to="pipuck1,pipuck2,pipuck28,pipuck29,pipuck9" />
+	<pipuck id="pipuck34" controller="pipuck" can_send_to="pipuck27,pipuck5,pipuck47,pipuck35" />
+	<pipuck id="pipuck35" controller="pipuck" can_send_to="pipuck34,pipuck8" />
+	<pipuck id="pipuck36" controller="pipuck" can_send_to="pipuck21,pipuck40" />
+	<pipuck id="pipuck37" controller="pipuck" can_send_to="pipuck21,pipuck26,pipuck29,pipuck31,pipuck45" />
+	<pipuck id="pipuck38" controller="pipuck" can_send_to="pipuck10,pipuck31,pipuck7,pipuck41" />
+	<pipuck id="pipuck39" controller="pipuck" can_send_to="pipuck14,pipuck32,pipuck6,pipuck43,pipuck46" />
+	<pipuck id="pipuck4" controller="pipuck" can_send_to="pipuck12,pipuck3,pipuck43" />
+	<pipuck id="pipuck5" controller="pipuck" can_send_to="pipuck25,pipuck30,pipuck31,pipuck34,pipuck41,pipuck47,pipuck49" />
+	<pipuck id="pipuck6" controller="pipuck" can_send_to="pipuck14,pipuck2,pipuck39" />
+	<pipuck id="pipuck7" controller="pipuck" can_send_to="pipuck17,pipuck22,pipuck38,pipuck41,pipuck8" />
+	<pipuck id="pipuck8" controller="pipuck" can_send_to="pipuck17,pipuck35,pipuck43,pipuck7" />
+	<pipuck id="pipuck9" controller="pipuck" can_send_to="pipuck0,pipuck13,pipuck16,pipuck22,pipuck33,pipuck48" />
+
+
+    </robots>
+  </loop_functions>
+
+</argos-configuration>

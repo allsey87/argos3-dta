@@ -23,11 +23,11 @@ for size in sizes:
 	network='proximity'
 	
 	#~ ranges=[x for x in range(0.5, 25.00, 0.02)]
-	ranges=[i*0.02+0.5 for i in range(0, int(24.5/0.02)) ]
+	ranges=[i*0.02+0.5 for i in range(0, int(9/0.02)) ]
 	
 	with open('degree_testing_output.csv', 'w+') as outFile:
-		#~ for d in range(0,len(ranges)):
-		for d in range(566,573):
+		for d in range(0,len(ranges)):
+		#~ for d in range(566,573):
 			filename = '/users/irausch/argos3-dta/results/size_' + size + '_DEGREE_TESTING/' + network + '/' + str(d) + '/'
 			seed_average = average_over_seeds(filename)
 			
