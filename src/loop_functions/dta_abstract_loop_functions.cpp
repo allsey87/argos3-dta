@@ -375,14 +375,14 @@ namespace argos {
 		  avg_fEstimate = avg_fEstimate/(1.0*unEstimatingRobotsCount);
 		  avg_fDeviation = avg_fDeviation/(1.0*unEstimatingRobotsCount);
 		  avg_fDegree = avg_fDegree/(1.0*unEstimatingRobotsCount);
-		  LOGERR << unForagingRobotsCount << "\t"
-						   << unBuildingRobotsCount << "\t"
-						   << avg_fEstimate << "\t"
-						   << avg_fDeviation << "\t"
-						   << unTotalConstructionEvents << "\t"
-						   << unShadedCells/(1.0*625) << "\t"
-						   << avg_fDegree 
-						   << std::endl;
+		  //~ LOGERR << unForagingRobotsCount << "\t"
+						   //~ << unBuildingRobotsCount << "\t"
+						   //~ << avg_fEstimate << "\t"
+						   //~ << avg_fDeviation << "\t"
+						   //~ << unTotalConstructionEvents << "\t"
+						   //~ << unShadedCells/(1.0*625) << "\t"
+						   //~ << avg_fDegree 
+						   //~ << std::endl;
 		  /* write output */
 		  if(m_cOutputFile.is_open() && m_cOutputFile.good()) {
 			 m_cOutputFile << unForagingRobotsCount << "\t"
