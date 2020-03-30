@@ -6,11 +6,11 @@
 # /auxiliary/local_files*/
 # /data.csv
 
-/*
+/**
 !/src/
-!/src/*/
+!/src/**
 !/auxiliary/
-!/auxiliary/*/
+!/auxiliary/**
 /auxiliary/local_files/
 !/README.md
 !/.gitignore
