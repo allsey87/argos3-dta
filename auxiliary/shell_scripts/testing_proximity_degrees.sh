@@ -7,7 +7,6 @@ TOPOLOGY="proximity"
 
 MIN_DEG=0;
 MAX_DEG=$((${#arrayRANGETEMP[@]}-1));
-#~ MAX_DEG=$((5-1));
 
 SIZE=$1;
 
@@ -25,18 +24,13 @@ for degree in `seq $MIN_DEG $MAX_DEG`;
 	do mkdir "$fullDir"/results/"$CODENAME"/"$specDir"/"$degree";
 	for seed in `seq $MIN_SEED $MAX_SEED`;
 		do mkdir "$fullDir"/results/"$CODENAME"/"$specDir"/"$degree"/"$seed"; 
-		
-		if [ "$TOPOLOGY" != "proximity" -a "$TOPOLOGY" != "no_comm" ]; then 
-			cp $fullDir/argos_files/size_"$SIZE"/"$TOPOLOGY"_"$SIZE"/"$TOPOLOGY"_"$degree"_"$seed".argos.in $fullDir/results/"$CODENAME"/"$specDir"/"$degree"/"$seed"/"$TOPOLOGY"_"$degree"_"$seed".argos.in;
-		else
-			cp $fullDir/argos_files/size_"$SIZE"/"$TOPOLOGY"_"$SIZE"/"$TOPOLOGY"_deg_test.argos.in $fullDir/results/"$CODENAME"/"$specDir"/"$degree"/"$seed"/"$TOPOLOGY"_"$degree"_"$seed".argos.in;
-		fi
+		cp $fullDir/argos_files/size_"$SIZE"/"$TOPOLOGY"_"$SIZE"/proximity_deg_test.argos.in $fullDir/results/"$CODENAME"/"$specDir"/"$degree"/"$seed"/"$TOPOLOGY"_"$degree"_"$seed".argos.in;
 	done;
 done;
 
-dump=~/dump;
+logs=~/logs;
 
-parallel --bar --delay 0.2 'TOPOL={2}; RANGE={3}; SEED={4}; SPECDIR={5}; CODENAME={6}; DUMP={7};
+parallel --bar --delay 0.2 'TOPOL={2}; RANGE={3}; SEED={4}; SPECDIR={5}; CODENAME={6}; LOGS={7};
 	fullPath={1}/results/"$CODENAME"/$SPECDIR/$RANGE/$SEED;
 	argFile=$fullPath/{2}_{3}_{4}.argos.in;
 	cd $fullPath;
@@ -47,8 +41,4 @@ parallel --bar --delay 0.2 'TOPOL={2}; RANGE={3}; SEED={4}; SPECDIR={5}; CODENAM
 	xmlstarlet ed --inplace -u 'argos-configuration//framework/experiment/@random_seed' -v $SEED $argFile; 
 	xmlstarlet ed --inplace -u 'argos-configuration//controllers/lua_controller/actuators/wifi/@range' -v ${arrayRANGE["$RANGE"]} $argFile;
 		
-	argos3 -l $DUMP/log -e $DUMP/logerr -c $argFile' ::: "$fullDir" ::: "$TOPOLOGY" ::: `seq $MIN_DEG $MAX_DEG` ::: `seq $MIN_SEED $MAX_SEED` ::: "$specDir" ::: "$CODENAME" ::: "$dump"
-	
-#~ cd $fullDir/results/"$CODENAME";
-#~ tar czf "$specDir"_"$MIN_DEG"_"$MAX_DEG"_"$CODENAME".tar.gz "$specDir"
-#~ cp "$specDir"_"$MIN_DEG"_"$MAX_DEG"_"$CODENAME".tar.gz /groups/wall2-ilabt-iminds-be/pl-compas/exp/results/task_allocation/
+	argos3 -l $LOGS/log -e $LOGS/logerr -c $argFile' ::: "$fullDir" ::: "$TOPOLOGY" ::: `seq $MIN_DEG $MAX_DEG` ::: `seq $MIN_SEED $MAX_SEED` ::: "$specDir" ::: "$CODENAME" ::: "$logs"

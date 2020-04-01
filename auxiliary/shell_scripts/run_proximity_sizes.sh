@@ -2,7 +2,7 @@
 
 SIZE=$1;
 
-arrayRANGE=(0.0) # <------------------- CHOOSE THIS FOR THE "ZERO DIRECT COMMUNICATION" SCENARIO! 
+#~ arrayRANGE=(0.0) # <------------------- CHOOSE THIS FOR THE "ZERO DIRECT COMMUNICATION" SCENARIO! 
 #~ TOPOLOGY="no_comm" # <------------------- CHOOSE THIS FOR THE "ZERO DIRECT COMMUNICATION" SCENARIO! 
 if [ "$SIZE" -eq "20" ]; then
 	arrayRANGE=(2.17 2.80 3.4 4.08 4.62 5.56); # <------------------- For swarm size 20
@@ -38,7 +38,7 @@ for degree in `seq $MIN_DEG $MAX_DEG`;
 		if [ "$TOPOLOGY" != "proximity" -a "$TOPOLOGY" != "no_comm" ]; then 
 			cp $fullDir/argos_files/size_"$SIZE"/"$TOPOLOGY"_"$SIZE"/"$TOPOLOGY"_"$degree"_"$seed".argos.in $fullDir/results/"$CODENAME"/"$specDir"/"$degree"/"$seed"/"$TOPOLOGY"_"$degree"_"$seed".argos.in;
 		else
-			cp $fullDir/argos_files/size_"$SIZE"/"$TOPOLOGY"_"$SIZE"/"$TOPOLOGY"_deg_test.argos.in $fullDir/results/"$CODENAME"/"$specDir"/"$degree"/"$seed"/"$TOPOLOGY"_"$degree"_"$seed".argos.in;
+			cp $fullDir/argos_files/size_"$SIZE"/proximity_"$SIZE"/proximity_deg_test.argos.in $fullDir/results/"$CODENAME"/"$specDir"/"$degree"/"$seed"/"$TOPOLOGY"_"$degree"_"$seed".argos.in;
 		fi
 	done;
 done;
@@ -46,12 +46,6 @@ done;
 
 logs=~/logs;
 mkdir "$logs";
-
-#####################
-#~ ATTENTION!
-#~ If you changed arrayRANGETEMP above, then also update 
-#~ arrayRANGE in the gnu parallel command below!
-#####################
 
 parallel --bar --delay 1.0 'TOPOL={2}; DEGREE={3}; RANGE={4}; SEED={5}; SPECDIR={6}; CODENAME={7}; LOGS={8}
 	fullPath={1}/results/"$CODENAME"/$SPECDIR/$DEGREE/$SEED;
