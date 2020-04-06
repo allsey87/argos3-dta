@@ -1,6 +1,6 @@
 luabt = require('luabt')
 
-function init()	   
+function init()  
    --[[ table of fixed robot parameters ]]--
    robot.constants = {
 		m = 20,
@@ -177,9 +177,11 @@ function step()
    local estimate = string.format("%3.5f", robot.variables.estimate)
    estimate = estimate:gsub(",", ".")
    robot.debug.set_estimate( estimate )
+
    local deviation = string.format("%3.5f", robot.variables.deviation)
    deviation = deviation:gsub(",", ".")
    robot.debug.set_deviation( deviation )
+   
    local degree = string.format("%3.5f", robot.variables.degree)
    degree = degree:gsub(",", ".")
    robot.debug.set_degree( degree )

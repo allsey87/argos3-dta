@@ -42,16 +42,3 @@ configure_file(
   ${CMAKE_BINARY_DIR}/experiment/pipuck.lua
   COPYONLY)
 
-configure_file(
-  ${CMAKE_SOURCE_DIR}/experiment/srocs.argos.in
-  ${CMAKE_BINARY_DIR}/experiment/srocs.argos)
-
-configure_file(
-  ${CMAKE_SOURCE_DIR}/experiment/builderbot.lua
-  ${CMAKE_BINARY_DIR}/experiment/builderbot.lua
-  COPYONLY)
-
-configure_file(
-  ${CMAKE_SOURCE_DIR}/experiment/block.lua
-  ${CMAKE_BINARY_DIR}/experiment/block.lua
-  COPYONLY)

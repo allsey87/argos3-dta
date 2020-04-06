@@ -61,7 +61,6 @@ namespace argos {
       /****************************************/
       /****************************************/
 
-
    private:
       std::set<std::string> m_setCanSendTo;
    };
@@ -97,14 +96,23 @@ namespace argos {
       private:
          const CRadioEntity& m_cTxRadio;
          const std::list<CByteArray>& m_lstMessages;
-         Real m_fRange;
+         Real m_fRange = 0.0;
       };
 
       /****************************************/
       /****************************************/
 
       virtual void Init(TConfigurationNode& t_tree) override {
-         GetNodeAttribute(t_tree, "range", m_fRange);
+         std::string strRange;
+         GetNodeAttribute(t_tree, "range", strRange);
+         if(strRange == "inf") {
+            m_bLimitRange = false;
+            m_fRange = std::numeric_limits<Real>::infinity();
+         }
+         else {
+            m_bLimitRange = true;
+            GetNodeAttribute(t_tree, "range", m_fRange);
+         }
          /* initialize base class */
          CWifiDefaultActuator::Init(t_tree);
       }
@@ -116,13 +124,18 @@ namespace argos {
          if(!m_lstMessages.empty()) {
             /* Create operation instance */
             CTxOperation cTxOperation(*m_pcRadioEntity, m_lstMessages, m_fRange);
-            /* Calculate the range of the transmitting radio */
-            CVector3 cTxRange(m_fRange, m_fRange, m_fRange);
             /* Get positional index */
             CPositionalIndex<CRadioEntity>* pcRadioIndex =
                &(m_pcRadioEntity->GetMedium().GetIndex());
-            /* Transmit the data to receiving radios in the space */
-            pcRadioIndex->ForEntitiesInBoxRange(m_pcRadioEntity->GetPosition(), cTxRange, cTxOperation);
+            if(m_bLimitRange) {
+               /* Calculate the range of the transmitting radio */
+               CVector3 cTxRange(m_fRange, m_fRange, m_fRange);
+               /* Transmit the data to receiving radios in the space */
+               pcRadioIndex->ForEntitiesInBoxRange(m_pcRadioEntity->GetPosition(), cTxRange, cTxOperation);
+            }
+            else {
+               pcRadioIndex->ForAllEntities(cTxOperation);
+            }
             /* Flush data from the control interface */
             m_lstMessages.clear();
          }
@@ -132,7 +145,8 @@ namespace argos {
       /****************************************/
 
    private:
-      Real m_fRange;
+      bool m_bLimitRange = false;
+      Real m_fRange = 0.0;
 
    };
 
@@ -161,7 +175,12 @@ namespace argos {
    /****************************************/
 
    CDTAAbstractLoopFunctions::CDTAAbstractLoopFunctions() :
-      m_unStepsUntilShadeCell(0) {
+      m_arrGridLayout{0.0, 0.0},
+      m_fMeanForagingDurationInitial(0.0),
+      m_fMeanForagingDurationGradient(0.0),
+      m_unConstructionLimit(0),
+      m_eShadingDistribution(EShadingDistribution::UNIFORM),
+      m_pcOutput(nullptr) {
       /* calculate the ticks per second */
       UInt32 unTicksPerSecond =
          static_cast<UInt32>(std::round(CPhysicsEngine::GetInverseSimulationClockTick()));
@@ -172,22 +191,39 @@ namespace argos {
    /****************************************/
 
    void CDTAAbstractLoopFunctions::Init(TConfigurationNode& t_tree) {
-	   //LOG << "Initializing loop functions ..." << std::endl;
       GetNodeAttributeOrDefault(t_tree, "output", m_strOutputFilename, m_strOutputFilename);
-      if(!m_strOutputFilename.empty()) {
-         m_cOutputFile.open(m_strOutputFilename, std::ios_base::out | std::ios_base::trunc);
-         if(m_cOutputFile.is_open() && m_cOutputFile.good()) {
-            m_cOutputFile << CSV_HEADER << std::endl;
-         }
+      if(m_strOutputFilename.empty()) {
+         m_pcOutput = &std::cout;
       }
+      else {
+         std::ofstream* pcOutputFile = 
+            new std::ofstream(m_strOutputFilename, std::ios_base::out | std::ios_base::trunc);
+         if(!pcOutputFile->is_open()) {
+            THROW_ARGOSEXCEPTION("Can not create output file \"" << m_strOutputFilename << "\"");
+         }
+         m_pcOutput = pcOutputFile;
+      }
+      if(!m_pcOutput->good()) {
+         THROW_ARGOSEXCEPTION("Output stream is not ready");
+      }
+      *m_pcOutput << CSV_HEADER << std::endl;
       /* parse the parameters */
       TConfigurationNode& tParameters = GetNode(t_tree, "parameters");
       /* parse the foraging delay coefficient and the construction limit */
-      GetNodeAttribute(tParameters, "foraging_delay_coeff", m_fForagingDelayCoefficient);
-      GetNodeAttribute(tParameters, "foraging_duration_mean", m_fForagingDurationMean);
+      GetNodeAttribute(tParameters, "mean_foraging_duration_initial", m_fMeanForagingDurationInitial);
+      GetNodeAttribute(tParameters, "mean_foraging_duration_gradient", m_fMeanForagingDurationGradient);
       GetNodeAttribute(tParameters, "construction_limit", m_unConstructionLimit);
-      bool b_complet_network = false;
-      GetNodeAttribute(tParameters, "complete_network", b_complet_network);
+      std::string strShadingDistribution;
+      GetNodeAttribute(tParameters, "shading_distribution", strShadingDistribution);
+      if(strShadingDistribution == "poisson") {
+         m_eShadingDistribution = EShadingDistribution::POISSON;
+      }
+      else if(strShadingDistribution == "uniform") {
+         m_eShadingDistribution = EShadingDistribution::UNIFORM;
+      }
+      else {
+         THROW_ARGOSEXCEPTION("Unsupported shading distribution");
+      }
       /* parse the grid configuration */
       std::string strGridLayout;
       GetNodeAttribute(tParameters, "grid_layout", strGridLayout);
@@ -202,55 +238,28 @@ namespace argos {
       std::string strCanSendTo;
       std::vector<std::string> vecCanSendTo;
       std::set<std::string> setCanSendTo;
-      
-      if(b_complet_network){
-		  // --- THIS IMPLEMENTS A COMPLETE NETWORK ---
-		  for(itPiPuck = itPiPuck.begin(&GetNode(t_tree,"robots"));
-			  itPiPuck != itPiPuck.end();
-			  ++itPiPuck) {
-			 GetNodeAttribute(*itPiPuck, "id", strId);
-			 vecCanSendTo.push_back(strId);
-		  }
-		  for(itPiPuck = itPiPuck.begin(&GetNode(t_tree,"robots"));
-			  itPiPuck != itPiPuck.end();
-			  ++itPiPuck) {
-			 GetNodeAttribute(*itPiPuck, "id", strId);
-			 GetNodeAttribute(*itPiPuck, "controller", strController);
-			 GetNodeAttribute(*itPiPuck, "can_send_to", strCanSendTo);
-			 setCanSendTo.clear();
-			 setCanSendTo.insert(std::begin(vecCanSendTo),
-								 std::end(vecCanSendTo));
-			 m_mapRobots.emplace(std::piecewise_construct,
-								 std::forward_as_tuple(strId),
-								 std::forward_as_tuple(strController, setCanSendTo));
-		  }
-		  // --------------------------------------------
-	  }
-	  else{
-		  // --- THIS IMPLEMENTS A NETWORK SET IN THE ARGOS FILE ---
-		  for(itPiPuck = itPiPuck.begin(&GetNode(t_tree,"robots"));
-			  itPiPuck != itPiPuck.end();
-			  ++itPiPuck) {
-			 GetNodeAttribute(*itPiPuck, "id", strId);
-			 GetNodeAttribute(*itPiPuck, "controller", strController);
-			 GetNodeAttribute(*itPiPuck, "can_send_to", strCanSendTo);
-			 vecCanSendTo.clear();
-			 setCanSendTo.clear();
-			 Tokenize(strCanSendTo, vecCanSendTo, ",");
-			 setCanSendTo.insert(std::begin(vecCanSendTo),
-								 std::end(vecCanSendTo));
-			 m_mapRobots.emplace(std::piecewise_construct,
-								 std::forward_as_tuple(strId),
-								 std::forward_as_tuple(strController, setCanSendTo));
-		  }
-		  //~ // -------------------------------------------------------
-	  }
-      
-		m_pcRNG = CRandom::CreateRNG("argos");
-    
-    for(size_t i = 0; i < m_vecCells.size(); i++) {
-		m_vecCells[i] = (m_pcRNG->Uniform(CRange<Real>(0.0, 1.0)) > 1.0);
-	}  
+      /* parse the pipuck robots */
+      for(itPiPuck = itPiPuck.begin(&GetNode(t_tree,"robots"));
+         itPiPuck != itPiPuck.end();
+         ++itPiPuck) {
+         strId.clear();
+         strController.clear();
+         strCanSendTo.clear();
+         vecCanSendTo.clear();
+         setCanSendTo.clear();
+         GetNodeAttribute(*itPiPuck, "id", strId);
+         GetNodeAttribute(*itPiPuck, "controller", strController);
+         GetNodeAttributeOrDefault(*itPiPuck, "can_send_to", strCanSendTo, strCanSendTo);
+         Tokenize(strCanSendTo, vecCanSendTo, ",");
+         setCanSendTo.insert(std::begin(vecCanSendTo),
+                             std::end(vecCanSendTo));
+         m_mapRobots.emplace(std::piecewise_construct,
+                             std::forward_as_tuple(strId),
+                             std::forward_as_tuple(strController, setCanSendTo));
+      }
+      for(size_t i = 0; i < m_vecCells.size(); i++) {
+		   m_vecCells[i] = (GetSimulator().GetRNG()->Uniform(CRange<Real>(0.0, 1.0)) > 1.0);
+	   }  
    }
 
    /****************************************/
@@ -266,31 +275,36 @@ namespace argos {
       }
       /* clear all cells and mark the floor as changed */
       m_vecCells.assign(m_vecCells.size(), false);
-    
-    for(size_t i = 0; i < m_vecCells.size(); i++) {
-		m_vecCells[i] = (m_pcRNG->Uniform(CRange<Real>(0.0, 1.0)) > 0.5);
-	}   
       GetSpace().GetFloorEntity().SetChanged();
       /* zero out the construction events */
       m_vecConstructionEvents.assign(m_vecConstructionEvents.size(), 0);
-      if(m_cOutputFile.is_open()) {
-         m_cOutputFile.close();
-         m_cOutputFile.clear();
-      }
-      if(!m_strOutputFilename.empty()) {
-         m_cOutputFile.open(m_strOutputFilename, std::ios_base::out | std::ios_base::trunc);
-         if(m_cOutputFile.is_open() && m_cOutputFile.good()) {
-            m_cOutputFile << CSV_HEADER << std::endl;
+      /* reconfigure the output file */
+      if(m_pcOutput != &std::cout) {
+         std::ofstream* pcOutputFile = static_cast<std::ofstream*>(m_pcOutput);
+         if(pcOutputFile->is_open()) {
+            pcOutputFile->close();
          }
+         delete pcOutputFile;
+         pcOutputFile = 
+            new std::ofstream(m_strOutputFilename, std::ios_base::out | std::ios_base::trunc);
+         if(!pcOutputFile->is_open()) {
+            THROW_ARGOSEXCEPTION("Can not create output file \"" << m_strOutputFilename << "\"");
+         }
+         m_pcOutput = pcOutputFile;
       }
+      m_pcOutput->clear();
+      if(!m_pcOutput->good()) {
+         THROW_ARGOSEXCEPTION("Output stream is not ready");
+      }
+      *m_pcOutput << CSV_HEADER << std::endl;
    }
 
    /****************************************/
    /****************************************/
 
    void CDTAAbstractLoopFunctions::Destroy() {
-      if(m_cOutputFile.is_open()) {
-         m_cOutputFile.close();
+      if(m_pcOutput != &std::cout) {
+         delete m_pcOutput;
       }
    }
 
@@ -310,7 +324,6 @@ namespace argos {
    /****************************************/
 
    void CDTAAbstractLoopFunctions::PostStep() {
-	   int time = GetSpace().GetSimulationClock();
       /* total number of robots */
       UInt32 unRobotsCount = m_mapRobots.size();
       /* count the robots that are foraging */
@@ -323,79 +336,67 @@ namespace argos {
       );
       /* calculate the robots that are building */
       UInt32 unBuildingRobotsCount = unRobotsCount - unForagingRobotsCount;
-      UInt32 unEstimatingRobotsCount = 0;
+      UInt32 unExploringRobotsCount = 0;
       /* calculate the number of shaded cells */
       UInt32 unShadedCells =
-            std::count(std::begin(m_vecCells), std::end(m_vecCells), true);
+         std::count(std::begin(m_vecCells), std::end(m_vecCells), true);
       /* get the current estimate value from each building robot */
-	  Real fEstimate = 0.0, avg_fEstimate = 0.0, fDeviation = 0.0, avg_fDeviation = 0.0, fDegree = 0.0, avg_fDegree = 0.0;
-	  std::string strTask;
+	   Real fEstimate = 0.0,
+         avg_fEstimate = 0.0, fDeviation = 0.0, avg_fDeviation = 0.0, fDegree = 0.0, avg_fDegree = 0.0;
       if(unBuildingRobotsCount > 0){
-		  for(std::pair<const std::string, SPiPuck>& c_pair : m_mapRobots) {
-			 SPiPuck& sPiPuck = c_pair.second;
-			 //const std::string& strId = c_pair.first;
-			 /* only consider robots currently performing the construction task */
-			 if(sPiPuck.Entity != nullptr) {
-				const std::string& strSetTaskBuffer =
-				   sPiPuck.Entity->GetDebugEntity().GetBuffer("set_task");
-				std::stringstream cTask(strSetTaskBuffer);
-				cTask >> strTask;
-				
-				if(strTask=="exploring"){
-					const std::string& strEstimateBuffer =
-					   sPiPuck.Entity->GetDebugEntity().GetBuffer("set_estimate");
-					std::stringstream cEstimate(strEstimateBuffer);
-					cEstimate >> fEstimate;
-					avg_fEstimate += fEstimate;
-					
-					const std::string& strDeviationBuffer =
-					   sPiPuck.Entity->GetDebugEntity().GetBuffer("set_deviation");
-					std::stringstream cDeviation(strDeviationBuffer);
-					cDeviation >> fDeviation;
-					avg_fDeviation += fDeviation;
-					
-					const std::string& strDegreeBuffer =
-					   sPiPuck.Entity->GetDebugEntity().GetBuffer("set_degree");
-					std::stringstream cDegree(strDegreeBuffer);
-					cDegree >> fDegree;
-					avg_fDegree += fDegree;
-					
-					unEstimatingRobotsCount++;
-				}
-			 }
-		  }
-	  }
-      
-	  UInt32 unTotalConstructionEvents = 0;
-	  for(UInt32 un_count : m_vecConstructionEvents) {
-		 unTotalConstructionEvents += un_count;
-	  }
-      // --- print the results ---
-      if(unEstimatingRobotsCount > 0){
-		  avg_fEstimate = avg_fEstimate/(1.0*unEstimatingRobotsCount);
-		  avg_fDeviation = avg_fDeviation/(1.0*unEstimatingRobotsCount);
-		  avg_fDegree = avg_fDegree/(1.0*unEstimatingRobotsCount);
-		  //~ LOGERR << unForagingRobotsCount << "\t"
-						   //~ << unBuildingRobotsCount << "\t"
-						   //~ << avg_fEstimate << "\t"
-						   //~ << avg_fDeviation << "\t"
-						   //~ << unTotalConstructionEvents << "\t"
-						   //~ << unShadedCells/(1.0*625) << "\t"
-						   //~ << avg_fDegree 
-						   //~ << std::endl;
-		  /* write output */
-		  if(m_cOutputFile.is_open() && m_cOutputFile.good()) {
-			 m_cOutputFile << unForagingRobotsCount << "\t"
-						   << unBuildingRobotsCount << "\t"
-						   << avg_fEstimate << "\t"
-						   << avg_fDeviation << "\t"
-						   << unTotalConstructionEvents << "\t"
-						   << unShadedCells/(1.0*625) << "\t"
-						   << avg_fDegree 
-						   << std::endl;
-		  }
-	  }
-	  
+		   for(std::pair<const std::string, SPiPuck>& c_pair : m_mapRobots) {
+			   SPiPuck& sPiPuck = c_pair.second;
+			   //const std::string& strId = c_pair.first;
+			   /* only consider robots currently performing the construction task */
+			   if(sPiPuck.Entity != nullptr) {
+               const std::string& strSetTaskBuffer =
+                  sPiPuck.Entity->GetDebugEntity().GetBuffer("set_task");
+               if(strSetTaskBuffer == "exploring") {
+                  /* read estimate from robot */
+                  const std::string& strEstimateBuffer =
+                     sPiPuck.Entity->GetDebugEntity().GetBuffer("set_estimate");
+                  std::istringstream(strEstimateBuffer) >> fEstimate;
+                  avg_fEstimate += fEstimate;
+                  /* read deviation from robot */
+                  const std::string& strDeviationBuffer =
+                     sPiPuck.Entity->GetDebugEntity().GetBuffer("set_deviation");
+                  std::istringstream(strDeviationBuffer) >> fDeviation;
+                  avg_fDeviation += fDeviation;
+                  /* read degree from robot */
+                  const std::string& strDegreeBuffer =
+                     sPiPuck.Entity->GetDebugEntity().GetBuffer("set_degree");
+                  std::istringstream(strDegreeBuffer) >> fDegree;
+                  avg_fDegree += fDegree;
+                  /* */
+                  unExploringRobotsCount++;
+				   }
+			   }
+		   }
+	   }
+	   UInt32 unTotalConstructionEvents = 0;
+	   for(UInt32 un_count : m_vecConstructionEvents) {
+		   unTotalConstructionEvents += un_count;
+	   }
+      /* print the results */
+      if(unExploringRobotsCount != 0) {
+		   avg_fEstimate = avg_fEstimate / static_cast<Real>(unExploringRobotsCount);
+		   avg_fDeviation = avg_fDeviation / static_cast<Real>(unExploringRobotsCount);
+		   avg_fDegree = avg_fDegree / static_cast<Real>(unExploringRobotsCount);
+		   /* write output */
+		   if(m_pcOutput->good()) {
+			   *m_pcOutput << unForagingRobotsCount << '\t'
+                        << unBuildingRobotsCount << '\t'
+                        << avg_fEstimate << '\t'
+                        << avg_fDeviation << '\t'
+                        << unTotalConstructionEvents << '\t'
+                        << unShadedCells / static_cast<Real>(m_arrGridLayout[0] * m_arrGridLayout[1]) << '\t'
+                        << avg_fDegree 
+                        << std::endl;
+		   }
+         else {
+           THROW_ARGOSEXCEPTION("Output stream is not ready");
+         }
+	   }
       /* handle cell unshading */
       /* get the number of block attachments for this step */
       UInt32& unConstructionEvents =
@@ -421,31 +422,29 @@ namespace argos {
                   if(unTotalConstructionEvents < m_unConstructionLimit) {
                      unConstructionEvents += 1;
                      m_vecCells[unCellIndex] = false;
-                  GetSpace().GetFloorEntity().SetChanged();
+                     GetSpace().GetFloorEntity().SetChanged();
                   }
                }
                sPiPuck.PreviousX = unX;
                sPiPuck.PreviousY = unY;
-			 }
-		  }
-	  }
+			   }
+		   }
+	   }
       /* find the robots that want to change to the foraging task */
       for(std::pair<const std::string, SPiPuck>& c_pair : m_mapRobots) {
          SPiPuck& sPiPuck = c_pair.second;
-         //~ const std::string& strId = c_pair.first;
          /* only consider robots currently performing the construction task */
          if(sPiPuck.Entity != nullptr) {
-            /* to keep things simple: a non-empty set_task buffer indicates
-               that the controller wants to swap to the foraging task */
             const std::string& strSetTaskBuffer =
                sPiPuck.Entity->GetDebugEntity().GetBuffer("set_task");
-				std::stringstream cTask(strSetTaskBuffer);
-				cTask >> strTask;
-            if(strTask=="foraging") {
+            std::cerr << strSetTaskBuffer << std::endl;
+            if(strSetTaskBuffer.find("foraging") != std::string::npos) {
                RemoveEntity(*sPiPuck.Entity);
                sPiPuck.Entity = nullptr;
+               Real fMeanForagingDuration = m_fMeanForagingDurationInitial +
+                  m_fMeanForagingDurationGradient * GetSpace().GetSimulationClock();
                sPiPuck.StepsUntilReturnToConstructionTask =
-                  GetSimulator().GetRNG()->Poisson(m_fForagingDurationMean);
+                  GetSimulator().GetRNG()->Poisson(fMeanForagingDuration);
                // START HACK
                GetSimulator().GetMedium<CRadioMedium>("wifi").Update();
                // END HACK
@@ -459,8 +458,7 @@ namespace argos {
          /* only consider robots currently performing the construction task */
          if(sPiPuck.Entity == nullptr) {
             if(sPiPuck.StepsUntilReturnToConstructionTask == 0) {
-               /* respawn robot with random position and orientation */
-               //~ std::cerr << strId << ": foraging -> construction" << std::endl;
+               /* respawn robot with random position and orientation (minus 5 cm from the boundary) */
                CRange<Real> cXRange(0.05, cArenaSize.GetX() - 0.05);
                CRange<Real> cYRange(0.05, cArenaSize.GetY() - 0.05);
                for(;;) {
@@ -482,9 +480,6 @@ namespace argos {
                      sPiPuck.PreviousY = static_cast<UInt32>(fY * m_arrGridLayout.at(1) / cArenaSize.GetY());
                      CCI_Controller& cController =
                         sPiPuck.Entity->GetControllableEntity().GetController();
-                     //~ CDTAAbstractWifiActuator* pcWifiActuator =
-                        //~ cController.GetActuator<CDTAAbstractWifiActuator>("wifi");
-                     //~ pcWifiActuator->SetCanSendTo(sPiPuck.CanSendTo);
                      /* try to set the CanSendTo attribute of the CDTAAbstractWifiActuator. This will fail
                         silently if we are using a different actuator, e.g., CDTAProximityWifiActuator */
                      try {
@@ -499,39 +494,45 @@ namespace argos {
                      break;
                   }
                }
-               if(time > 5 && true){
-               // INSTANTLY SHADE A RANDOM CELL 
-				 CRange<UInt32> cXRangeInt(0, std::round(m_arrGridLayout[0]/2.0));
-				 CRange<UInt32> cYRangeInt(0, std::round(m_arrGridLayout[1]/2.0));
-				 int count_tries = 0;
-				 if(unShadedCells < m_arrGridLayout[0] * m_arrGridLayout[1] && true) {
-					for(;;) {
-					   UInt32 unX = GetSimulator().GetRNG()->Uniform(cXRangeInt);
-					   UInt32 unY = GetSimulator().GetRNG()->Uniform(cYRangeInt);
-					   count_tries++;
-					   if(!m_vecCells.at(unX + m_arrGridLayout[0] * unY)) {
-						  m_vecCells[unX + m_arrGridLayout[0] * unY] = true;
-						  break;
-					   }
-					   else if(count_tries > 250){
-						   break;
-					   }
-					}
-				 }
-				 if(unShadedCells < m_arrGridLayout[0] * m_arrGridLayout[1] && count_tries > 250) {
-					CRange<UInt32> cXRangeFullInt(0, std::round(m_arrGridLayout[0]));
-					CRange<UInt32> cYRangeFullInt(0, std::round(m_arrGridLayout[1]));
-					for(;;) {
-					   UInt32 unX = GetSimulator().GetRNG()->Uniform(cXRangeFullInt);
-					   UInt32 unY = GetSimulator().GetRNG()->Uniform(cYRangeFullInt);
-					   if(!m_vecCells.at(unX + m_arrGridLayout[0] * unY)) {
-						  m_vecCells[unX + m_arrGridLayout[0] * unY] = true;
-						  break;
-					   }
-					}
-				 }
-			   }
-              GetSpace().GetFloorEntity().SetChanged();
+               /* do not shade cells when the robots are added just after initialization */
+               if(GetSpace().GetSimulationClock() > 5) {
+                  /* only shade a cell if an unshaded cell exists */
+                  if(unShadedCells < m_arrGridLayout[0] * m_arrGridLayout[1]) {
+                     CRange<UInt32> cXRange(0, m_arrGridLayout[0]);
+                     CRange<UInt32> cYRange(0, m_arrGridLayout[1]);
+                     if(m_eShadingDistribution == EShadingDistribution::POISSON) {
+                        Real fMeanX = m_arrGridLayout[0] / 4.0;
+                        Real fMeanY = m_arrGridLayout[1] / 4.0;
+                        for(;;) {
+                           Real fX = GetSimulator().GetRNG()->Poisson(fMeanX);
+                           Real fY = GetSimulator().GetRNG()->Poisson(fMeanY);
+                           UInt32 unX = static_cast<Real>(std::round(fX));
+                           UInt32 unY = static_cast<Real>(std::round(fY));
+                           if(cXRange.WithinMinBoundIncludedMaxBoundExcluded(unX) &&
+                              cYRange.WithinMinBoundIncludedMaxBoundExcluded(unY) &&
+                              m_vecCells.at(unX + m_arrGridLayout[0] * unY) == false) {
+                              /* shade the unshaded tile */
+                              m_vecCells[unX + m_arrGridLayout[0] * unY] = true;
+                              break;
+                           }
+                        }
+                     }
+                     else if(m_eShadingDistribution == EShadingDistribution::UNIFORM) {
+                        for(;;) {
+                           UInt32 unX = GetSimulator().GetRNG()->Uniform(cXRange);
+                           UInt32 unY = GetSimulator().GetRNG()->Uniform(cYRange);
+                           if(cXRange.WithinMinBoundIncludedMaxBoundExcluded(unX) &&
+                              cYRange.WithinMinBoundIncludedMaxBoundExcluded(unY) &&
+                              m_vecCells.at(unX + m_arrGridLayout[0] * unY) == false) {
+                              /* shade the unshaded tile */
+                              m_vecCells[unX + m_arrGridLayout[0] * unY] = true;
+                              break;
+                           }
+                        }
+                     }
+                  }
+               }
+               GetSpace().GetFloorEntity().SetChanged();
             }
             else {
                /* decrement counter */

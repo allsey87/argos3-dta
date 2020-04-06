@@ -77,7 +77,6 @@
           <interface id="set_task" />
           <interface id="set_estimate" />
           <interface id="set_deviation" />
-          <interface id="set_state" />
           <interface id="set_degree" />
         </debug>
         <wifi implementation="dta_proximity" range="1.0" />

@@ -4,7 +4,7 @@
   <!-- General configuration -->
   <framework>
     <system threads="0" />
-    <experiment length="100" ticks_per_second="5" random_seed="1" />
+    <experiment length="1000" ticks_per_second="5" random_seed="1" />
   </framework>
 
   <!-- *********************** -->
@@ -49,9 +49,7 @@
 
   <!-- ****************** -->
   <!-- * Visualization  * -->
-  <!-- ******************
- -->
-
+  <!-- ****************** -->
   <visualization>
     <qt-opengl lua_editor="false" show_boundary="false">
       <camera>
@@ -76,11 +74,11 @@
         <debug implementation="default">
           <interface id="set_task" />
           <interface id="set_estimate" />
-          <interface id="set_gradient" />
-          <interface id="set_state" />
+          <interface id="set_deviation" />
+          <interface id="set_degree" />
         </debug>
         <!--wifi implementation="dta_abstract" /-->
-        <wifi implementation="dta_proximity" range="0.5" />
+        <wifi implementation="dta_proximity" range="0.5"/>
       </actuators>
       <sensors>
         <pipuck_ground implementation="default" show_rays="false" />
@@ -88,7 +86,7 @@
         <pipuck_rangefinders implementation="default" show_rays="false" />
         <wifi implementation="default" show_rays="true" />
       </sensors>
-      <params script="/home/irausch/git_repos/argos3-dta/build/experiment/pipuck.lua" />
+      <params script="@CMAKE_BINARY_DIR@/experiment/pipuck.lua" />
     </lua_controller>
 
   </controllers>
@@ -103,10 +101,13 @@
          * construction_limit: is the maximum number of blocks that can be attached to a structure
               every second (the limit is imposed on how many blocks have been placed in the last second).
   -->
-  <loop_functions library="/home/irausch/git_repos/argos3-dta/build/loop_functions/libdta_abstract_loop_functions"
-                  label="dta_abstract_loop_functions"
-                  output="data.csv">
-    <parameters grid_layout="25,25" foraging_delay_coeff="1" foraging_duration_mean="100" construction_limit="1000" complete_network="false"/>
+  <loop_functions library="@CMAKE_BINARY_DIR@/loop_functions/libdta_abstract_loop_functions"
+                  label="dta_abstract_loop_functions">
+    <parameters grid_layout="25,25"
+                shading_distribution="poisson"
+                mean_foraging_duration_initial="10"
+                mean_foraging_duration_gradient="0.25"
+                construction_limit="1000"/>
     <robots>
       <pipuck id="pipuck0" controller="pipuck" can_send_to="pipuck1,pipuck7,pipuck3" />
       <pipuck id="pipuck1" controller="pipuck" can_send_to="pipuck10,pipuck5,pipuck9" />

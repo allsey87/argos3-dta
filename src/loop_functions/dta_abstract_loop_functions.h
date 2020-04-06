@@ -55,25 +55,22 @@ namespace argos {
    private:
       /* loop function configuration */
       std::array<UInt32, 2> m_arrGridLayout;
-      Real m_fForagingDelayCoefficient;
-      Real m_fForagingDurationMean;
+      Real m_fMeanForagingDurationInitial;
+      Real m_fMeanForagingDurationGradient;
       UInt32 m_unConstructionLimit;
-
-	   /* The random number generator */
-	   CRandom::CRNG* m_pcRNG;
-
+      enum class EShadingDistribution {
+         UNIFORM, POISSON
+      } m_eShadingDistribution;
+      
       /* loop function output */
       std::string m_strOutputFilename;
-      std::ofstream m_cOutputFile;
+      std::ostream* m_pcOutput;
 
       /* loop function state */
-      UInt32 m_unStepsUntilShadeCell;
       std::vector<bool> m_vecCells;
       std::map<std::string, SPiPuck> m_mapRobots;
       std::vector<UInt32> m_vecConstructionEvents;
-      std::map<std::string, std::vector<Real>> m_mapRobotStates;
    };
-
 
 }
 
