@@ -1,11 +1,11 @@
 luabt = require('luabt')
 
-function init()  
+function init()	   
    --[[ table of fixed robot parameters ]]--
    robot.constants = {
 		m = 20,
 		m2 = 100,
-		opt_dens = 0.1,
+		opt_dens = 0.3,
    }
    
    --[[ table of variable robot parameters ]]--
@@ -17,7 +17,7 @@ function init()
 		--[[ create an entry in the robot table to store
 			the robot's estimates ]]--
 		estimate = 0.0,
-		prev_iter_estimate = robot.estimate,
+		prev_iter_estimate = estimate,
 		deviation = 0.0,
 	   
 		--[[ create an entry in the robot table to store
@@ -26,11 +26,10 @@ function init()
 		
 		--[[ create entries in the robot table to store
 			 the robot's time counters ]]--
-		timer = 0,
-		curr_expl_time = 0,
-   
-		tot_expl_time = robot.random.exponential(robot.constants.m2),
-		tot_diss_time = robot.random.exponential(robot.constants.m),
+		curr_expl_time = 0,   
+		tot_init_expl_time = robot.random.poisson(robot.constants.m2),
+		tot_expl_time = robot.random.poisson(robot.constants.m),
+		prev_tot_expl_time = tot_expl_time,
 		
 		--[[ create an entry in the robot table to store
 			the robot's degree (i.e. number of neighbors 
@@ -81,7 +80,7 @@ function init()
 end
 
 function step()
-   -- process obstacles
+	-- process obstacles
    obstacle_detected = false
    local rangefinders = {
       far_left  = robot.rangefinders[7].reading,
@@ -90,44 +89,42 @@ function step()
       far_right = robot.rangefinders[2].reading,
    }
    for rangefinder, reading in pairs(rangefinders) do
-      if reading < 0.075 then
+      if reading < 0.1 then
          obstacle_detected = true
       end
-   end
+   end	  
+   
    -- tick obstacle avoidance behavior tree
-   robot.behavior()
+   robot.behavior() 
    
 	-- sets the current robot task, i.e. foraging, exploring or initial_exploration
 	robot.debug.set_task(robot.variables.state) 
-      
-   -- update the timer
-   robot.variables.timer = robot.variables.timer + 1
-    
+   
    --~ -- put the robot id and the value of the ground accumlator in a table
    if robot.variables.state == "exploring" then
    --~ the robot is exploring the arena/cache in search for shaded tiles/building blocks
 	   --~ decrement the number of time steps a robot is exploring
 	   robot.variables.curr_expl_time = robot.variables.curr_expl_time + 1.0
-	   --~ count the number of time steps a robot is on a shaded tile
+	   --~ -- count the number of time steps a robot is on a shaded tile
+	   --~ robot.variables.accumulator = 0
 	   if robot.ground.center.reading < 0.75 then
 		  robot.variables.accumulator = robot.variables.accumulator + 1.0
 	   end
       
       --~ the robot averages its accumulator measurements over robot.variables.tot_diss_time+1 seconds
-      if robot.variables.timer >= robot.variables.tot_diss_time+1 then
+      if robot.variables.curr_expl_time >= robot.variables.tot_expl_time+1 then
 		  -- update the robot's extimate and deviation from the desired density opt_dens
-		  robot.variables.estimate = (robot.variables.estimate * (robot.variables.curr_expl_time - 1) + robot.variables.accumulator) / (1.0*robot.variables.curr_expl_time)
+		  --~ robot.variables.estimate = (robot.variables.estimate * robot.variables.prev_tot_expl_time + robot.variables.accumulator) / (1.0*robot.variables.curr_expl_time)
+		  robot.variables.estimate = (1.0*robot.variables.accumulator) / (1.0*robot.variables.curr_expl_time)
 		  robot.variables.deviation = (robot.variables.estimate - robot.constants.opt_dens)
 		  robot.variables.prev_iter_estimate = robot.variables.estimate
 		  
-		  robot.variables.timer = 0
-		  robot.variables.curr_expl_time = 1
+		  robot.variables.prev_tot_expl_time = robot.variables.curr_expl_time
+		  robot.variables.curr_expl_time = 0
 		  robot.variables.accumulator = 0
-		  robot.variables.tot_diss_time = robot.random.exponential(robot.constants.m)
+		  robot.variables.tot_expl_time = robot.random.poisson(robot.constants.m)
 		  
 		  -- switch probabilistically to foraging, iff (robot.variables.estimate - robot.constants.opt_dens) < 0
-		  local switch_prob = robot.variables.accumulator / robot.variables.curr_expl_time
-		  
 		  if robot.random.uniform() < robot.constants.opt_dens and robot.variables.deviation < 0 then
 			 robot.variables.state = "foraging"
 		  end
@@ -140,24 +137,24 @@ function step()
          est = robot.variables.estimate,
          dev = robot.variables.deviation
       }
+      
       --~ broadcast that table over wifi
       robot.wifi.tx_data(data)
       
       --~ now listen to others
       robot.listen()
-      
    --~ perform the initial_exploration if you just arrived from foraging
    elseif robot.variables.state == "initial_estimation" then
 	   --~ decrement the number of time steps a robot is perorming initial_estimation
 	   robot.variables.curr_expl_time = robot.variables.curr_expl_time + 1.0
 	   
-	   --~ count the number of time steps a robot is on a shaded tile
+	   --~ -- count the number of time steps a robot is on a shaded tile
 	   if robot.ground.center.reading < 0.75 then
 		  robot.variables.accumulator = robot.variables.accumulator + 1.0
 	   end
       
       --~ Has the robot finished initial exploration?
-      if robot.variables.curr_expl_time >= robot.variables.tot_expl_time then
+      if robot.variables.curr_expl_time >= robot.variables.tot_init_expl_time then
 		  
 		  --~ Prepare the robot to switch to exploring
 		  robot.variables.state = "exploring"
@@ -166,22 +163,19 @@ function step()
 		  robot.variables.prev_iter_estimate = robot.variables.estimate
 		  robot.variables.accumulator = 0
 		  
-		  robot.variables.timer = 0
-		  robot.variables.curr_expl_time = 1
-		  robot.variables.tot_diss_time = robot.random.exponential(robot.constants.m)
+		  robot.variables.prev_tot_expl_time = robot.variables.curr_expl_time
+		  robot.variables.curr_expl_time = 0
+		  robot.variables.tot_expl_time = robot.random.poisson(robot.constants.m)
 	  end
 	  -- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    end
-   
-   -- send the current estimate to the loop functions
+   -- send the current estimate, deviation and degree to the loop functions
    local estimate = string.format("%3.5f", robot.variables.estimate)
    estimate = estimate:gsub(",", ".")
    robot.debug.set_estimate( estimate )
-
    local deviation = string.format("%3.5f", robot.variables.deviation)
    deviation = deviation:gsub(",", ".")
    robot.debug.set_deviation( deviation )
-   
    local degree = string.format("%3.5f", robot.variables.degree)
    degree = degree:gsub(",", ".")
    robot.debug.set_degree( degree )
