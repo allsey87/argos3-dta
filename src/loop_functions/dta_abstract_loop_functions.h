@@ -59,7 +59,7 @@ namespace argos {
       Real m_fMeanForagingDurationGradient;
       UInt32 m_unConstructionLimit;
       enum class EShadingDistribution {
-         UNIFORM, POISSON
+         UNIFORM, BIASED
       } m_eShadingDistribution;
       
       /* loop function output */

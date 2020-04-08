@@ -215,8 +215,8 @@ namespace argos {
       GetNodeAttribute(tParameters, "construction_limit", m_unConstructionLimit);
       std::string strShadingDistribution;
       GetNodeAttribute(tParameters, "shading_distribution", strShadingDistribution);
-      if(strShadingDistribution == "poisson") {
-         m_eShadingDistribution = EShadingDistribution::POISSON;
+      if(strShadingDistribution == "biased") {
+         m_eShadingDistribution = EShadingDistribution::BIASED;
       }
       else if(strShadingDistribution == "uniform") {
          m_eShadingDistribution = EShadingDistribution::UNIFORM;
@@ -311,13 +311,38 @@ namespace argos {
    /****************************************/
    /****************************************/
 
+
+   #define WALL_THICKNESS 0.025
+/*
+   bool IsOnGrid(const CVector2& c_position) {
+      const CVector3& cArenaSize = GetSpace().GetArenaSize();
+      CRange<Real> cXRange(WALL_THICKNESS, cArenaSize.GetX() - WALL_THICKNESS);
+      CRange<Real> cYRange(WALL_THICKNESS, cArenaSize.GetY() - WALL_THICKNESS);
+      return (cXRange.WithinMinBoundIncludedMaxBoundIncluded(c_position.GetX()) &&
+              cYRange.WithinMinBoundIncludedMaxBoundIncluded(c_position.GetY()));
+   }
+
+   std::pair<UInt32, UInt32> GetGridCoordinates(c_position) {
+      UInt32 unX = static_cast<UInt32>((c_position.GetX() - WALL_THICKNESS) * m_arrGridLayout.at(0) / (cArenaSize.GetX() - 2 * WALL_THICKNESS));
+      UInt32 unY = static_cast<UInt32>((c_position.GetY() - WALL_THICKNESS) * m_arrGridLayout.at(1) / (cArenaSize.GetY() - 2 * WALL_THICKNESS));
+      return std::make_pair<UInt32, UInt32>(unX, unY);
+   }
+*/
    CColor CDTAAbstractLoopFunctions::GetFloorColor(const CVector2& c_position) {
       const CVector3& cArenaSize = GetSpace().GetArenaSize();
-      /* convert c_position into cell coordinates */
-      UInt32 unX = static_cast<UInt32>(c_position.GetX() * m_arrGridLayout.at(0) / cArenaSize.GetX());
-      UInt32 unY = static_cast<UInt32>(c_position.GetY() * m_arrGridLayout.at(1) / cArenaSize.GetY());
-      /* shade cell if occupied */
-      return m_vecCells.at(unX + m_arrGridLayout[0] * unY) ? CColor::GRAY50 : CColor::GRAY80;
+      CRange<Real> cXRange(WALL_THICKNESS, cArenaSize.GetX() - WALL_THICKNESS);
+      CRange<Real> cYRange(WALL_THICKNESS, cArenaSize.GetY() - WALL_THICKNESS);
+      if(cXRange.WithinMinBoundIncludedMaxBoundIncluded(c_position.GetX()) &&
+         cYRange.WithinMinBoundIncludedMaxBoundIncluded(c_position.GetY())) {
+         /* convert c_position into cell coordinates */
+         UInt32 unX = static_cast<UInt32>((c_position.GetX() - WALL_THICKNESS) * m_arrGridLayout.at(0) / (cArenaSize.GetX() - 2 * WALL_THICKNESS));
+         UInt32 unY = static_cast<UInt32>((c_position.GetY() - WALL_THICKNESS) * m_arrGridLayout.at(1) / (cArenaSize.GetY() - 2 * WALL_THICKNESS));
+         /* shade cell if occupied */
+         return m_vecCells.at(unX + m_arrGridLayout[0] * unY) ? CColor::GRAY50 : CColor::GRAY80;
+      }
+      else {
+         return CColor::WHITE;
+      }
    }
 
    /****************************************/
@@ -437,7 +462,6 @@ namespace argos {
          if(sPiPuck.Entity != nullptr) {
             const std::string& strSetTaskBuffer =
                sPiPuck.Entity->GetDebugEntity().GetBuffer("set_task");
-            std::cerr << strSetTaskBuffer << std::endl;
             if(strSetTaskBuffer.find("foraging") != std::string::npos) {
                RemoveEntity(*sPiPuck.Entity);
                sPiPuck.Entity = nullptr;
@@ -500,7 +524,7 @@ namespace argos {
                   if(unShadedCells < m_arrGridLayout[0] * m_arrGridLayout[1]) {
                      CRange<UInt32> cXRange(0, m_arrGridLayout[0]);
                      CRange<UInt32> cYRange(0, m_arrGridLayout[1]);
-                     if(m_eShadingDistribution == EShadingDistribution::POISSON) {
+                     if(m_eShadingDistribution == EShadingDistribution::BIASED) {
                         Real fMeanX = m_arrGridLayout[0] / 4.0;
                         Real fMeanY = m_arrGridLayout[1] / 4.0;
                         for(;;) {
