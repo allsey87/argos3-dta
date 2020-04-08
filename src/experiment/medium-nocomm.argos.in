@@ -1,0 +1,106 @@
+<?xml version="1.0" ?>
+<argos-configuration>
+
+  <!-- General configuration -->
+  <framework>
+    <system threads="0" />
+    <experiment length="1000" ticks_per_second="5" random_seed="1" />
+  </framework>
+
+  <!-- Arena configuration -->
+  <arena size="4.05,4.05,1" center="2.025,2.025,0" >
+    <floor id="floor" source="loop_functions" pixels_per_meter="100" />
+    <box id="north" size="4.025,0.025,0.075" movable="false" >
+      <body position="2.0375,4.0375,0" orientation="0,0,0" />
+    </box>
+    <box id="east" size="0.025,4.025,0.075" movable="false" >
+      <body position="4.0375,2.0125,0" orientation="0,0,0" />
+    </box>
+    <box id="south" size="4.025,0.025,0.075" movable="false" >
+      <body position="2.0125,0.0125,0" orientation="0,0,0" />
+    </box>
+    <box id="west" size="0.025,4.025,0.075" movable="false" >
+      <body position="0.0125,2.0375,0" orientation="0,0,0" />
+    </box>
+  </arena>
+
+  <!-- Visualization -->
+  <visualization>
+    <qt-opengl lua_editor="false" show_boundary="false">
+      <camera>
+        <placement idx="0" position="2.025,2.025,7" look_at="2.025,2.025,0.5" lens_focal_length="44" up="1,0,0" />
+        <placement idx="1" position="2.025,-6.075,3" look_at="2.025,2.025,0.5" lens_focal_length="57" />
+        <placement idx="2" position="11.34,-7.29,7" look_at="2.025,2.025,0.5" lens_focal_length="86" />
+        <placement idx="3" position="10.125,2.025,3" look_at="2.025,2.025,0.5" lens_focal_length="57" />
+        <placement idx="4" position="11.34,11.34,7" look_at="2.025,2.025,0.5" lens_focal_length="86" />
+        <placement idx="5" position="2.025,10.125,3" look_at="2.025,2.025,0.5" lens_focal_length="57" />
+        <placement idx="6" position="-7.29,11.34,7" look_at="2.025,2.025,0.5" lens_focal_length="86" />
+        <placement idx="7" position="-6.075,2.025,3" look_at="2.025,2.025,0.5" lens_focal_length="57" />
+        <placement idx="8" position="-7.29,-7.29,7" look_at="2.025,2.025,0.5" lens_focal_length="86" />
+        <placement idx="9" position="2.025,2.025,7" look_at="2.025,2.025,0.5" lens_focal_length="44" up="1,0,0" />
+        <placement idx="10" position="2.025,2.025,7" look_at="2.025,2.025,0.5" lens_focal_length="44" up="1,0,0" />
+        <placement idx="11" position="2.025,2.025,7" look_at="2.025,2.025,0.5" lens_focal_length="44" up="1,0,0" />
+      </camera>
+    </qt-opengl>
+  </visualization>
+  
+  <!-- Physics engines -->
+  <physics_engines>
+    <dynamics3d id="dyn3d" iterations="10" default_friction="1">
+      <gravity g="9.8" />
+      <floor friction="1" />
+    </dynamics3d>
+  </physics_engines>
+
+  <!-- Media -->
+  <media>
+    <radio id="wifi" index="grid" grid_size="20,20,1" />
+  </media>
+
+  <!-- Controllers -->
+  <controllers>
+    <lua_controller id="pipuck">
+      <actuators>
+        <pipuck_differential_drive implementation="default" />
+        <debug implementation="default">
+          <interface id="set_task" />
+          <interface id="set_estimate" />
+          <interface id="set_deviation" />
+          <interface id="set_degree" />
+        </debug>
+        <!-- set the range of the wifi such that communication is effectively disabled -->
+        <wifi implementation="dta_proximity" range="0.005"/>
+      </actuators>
+      <sensors>
+        <pipuck_ground implementation="default" show_rays="false" />
+        <pipuck_differential_drive implementation="default" />
+        <pipuck_rangefinders implementation="default" show_rays="false" />
+        <wifi implementation="default" show_rays="true" />
+      </sensors>
+      <params script="@CMAKE_BINARY_DIR@/experiment/pipuck.lua" />
+    </lua_controller>
+  </controllers>
+
+  <!-- Loop functions
+     parameters:
+         * grid layout: the number of cells in the X and Y directions
+         * shading distribution: 'uniform' or 'biased' when biased the new tiles will appear following
+              a normal distribution in the corner of the simulation
+         * mean_foraging_duration_initial: the amount of time that a robot spends foraging following a 
+              possion distribution whose mean is initially: mean_foraging_duration_initial
+         * mean_foraging_duration_gradient: increases the mean foraging duration by 
+              mean_foraging_duration_gradient every tick of the simulation
+         * construction_limit: is the maximum number of blocks that can be attached to a structure
+              every second (the limit is imposed on how many blocks have been placed in the last second).
+  -->
+  <loop_functions library="@CMAKE_BINARY_DIR@/loop_functions/libdta_abstract_loop_functions"
+                  label="dta_abstract_loop_functions">
+    <parameters grid_layout="50,50"
+                shading_distribution="uniform"
+                mean_foraging_duration_initial="50"
+                mean_foraging_duration_gradient="0.05"
+                construction_limit="80"/>
+    <robots />
+  </loop_functions>
+
+</argos-configuration>

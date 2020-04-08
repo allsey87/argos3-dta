@@ -26,7 +26,7 @@ include_directories(BEFORE ${CMAKE_SOURCE_DIR})
 add_subdirectory(loop_functions)
 
 #
-# Configure examples
+# Copy controllers
 #
 configure_file(
   ${CMAKE_SOURCE_DIR}/experiment/luabt.lua
@@ -34,11 +34,30 @@ configure_file(
   COPYONLY)
 
 configure_file(
-  ${CMAKE_SOURCE_DIR}/experiment/abstract.argos.in
-  ${CMAKE_BINARY_DIR}/experiment/abstract.argos)
-
-configure_file(
   ${CMAKE_SOURCE_DIR}/experiment/pipuck.lua
   ${CMAKE_BINARY_DIR}/experiment/pipuck.lua
   COPYONLY)
+
+#
+# Configure templates
+#
+configure_file(
+  ${CMAKE_SOURCE_DIR}/experiment/small-proximity.argos.in
+  ${CMAKE_BINARY_DIR}/experiment/small-proximity.argos)
+configure_file(
+  ${CMAKE_SOURCE_DIR}/experiment/medium-proximity.argos.in
+  ${CMAKE_BINARY_DIR}/experiment/medium-proximity.argos)
+configure_file(
+  ${CMAKE_SOURCE_DIR}/experiment/large-proximity.argos.in
+  ${CMAKE_BINARY_DIR}/experiment/large-proximity.argos)
+
+configure_file(
+  ${CMAKE_SOURCE_DIR}/experiment/small-nocomm.argos.in
+  ${CMAKE_BINARY_DIR}/experiment/small-nocomm.argos)
+configure_file(
+  ${CMAKE_SOURCE_DIR}/experiment/medium-nocomm.argos.in
+  ${CMAKE_BINARY_DIR}/experiment/medium-nocomm.argos)
+configure_file(
+  ${CMAKE_SOURCE_DIR}/experiment/large-nocomm.argos.in
+  ${CMAKE_BINARY_DIR}/experiment/large-nocomm.argos)
 
