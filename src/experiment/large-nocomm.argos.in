@@ -46,9 +46,9 @@
   
   <!-- Physics engines -->
   <physics_engines>
-    <dynamics3d id="dyn3d" iterations="10" default_friction="1">
+    <dynamics3d id="dyn3d" iterations="10" default_friction="0.1">
       <gravity g="9.8" />
-      <floor friction="1" />
+      <floor friction="0.5" />
     </dynamics3d>
   </physics_engines>
 
