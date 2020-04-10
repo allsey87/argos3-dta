@@ -26,7 +26,14 @@ The ARGoS configuration files for running experiments in a small, medium, and la
    * `construction_limit` is the maximum number of tiles that can be unshaded (used for construction) every second
 
 ### Output of experiment
-The output of the loop functions is tab seperated values.
+The output of the loop functions is tab seperated values. The values are defined as follows:
+   * foraging robots: number of robots currently foraging blocks
+   * building robots: number of robots currently in the cache (capable of observing the local density of tiles)
+   * average estimate: TODO
+   * average deviation: TODO
+   * construction events: TODO
+   * blocks in cache: TODO
+   * average degree: TODO
 
 ## Limitations
 The loop functions work in part by adding and removing robots from the simulation. The QtOpenGL visualization can not handle the removal of robots from the simulator while they are **selected** and this will cause ARGoS to crash with a segmentation fault. It recommended that you do not step or run the simulation while robots are selected in the visualization.
@@ -74,10 +81,3 @@ cd build
 cmake -DCMAKE_BUILD_TYPE=Release ../src
 make
 ```
-
-## Note
-The code defining network topologies for a swarm of 343 and 500 pipucks can be found here:
-[Pipuck Networks](https://cloud.ilabt.imec.be/index.php/s/74rsRGkDsd4dj7i).
-Each file holds a topology for communication degrees *k={8,12,16,20}* (in case of random, regular, watts-strogatz, scale-free networks) or *k={6,12,24}* (in case of triadic graphs with id=38 (=> feedforward loop), id=98 (=> feedback loop), id=238 (=>bidirectional loop)).
-Additionally, there is a file for each one of 30 random-number-generator seeds.
-Paste all lines of a file into the configuration file (e.g. `abstract.argos`) inside `<loop_functions> <robots> ... </robots> </loop_functions>`.
