@@ -1,6 +1,6 @@
-# Dynamic task allocation for swarm robotics construction
+# Optimizing construction task allocation through the collective perception of its dynamic environment
 
-This repository contains the ARGoS controllers and loop functions for investigating dynamic task allocation for swarm robotics construction.
+This repository contains the Lua controllers and loop functions for investigating task allocation in a swarm robotics construction system in a dynamic environment using the ARGoS simulator.
 
 ## Dependencies
 To build on this work, you will need the following versions of ARGoS and the ARGoS-SRoCS plugin. For recommended instructions on how to install these, see the [compilation and installation](#compilation-and-installation) section.
@@ -72,8 +72,8 @@ sudo make install
 
 4. Compile the loop functions and configure the experiments
 ```bash
-# clone this repository (and its submodules)
-git clone --recursive https://github.com/allsey87/argos3-dta.git
+# clone this repository
+git clone https://github.com/allsey87/argos3-dta.git
 # configure and compile
 cd argos-dta
 mkdir build
