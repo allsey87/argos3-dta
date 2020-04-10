@@ -7,7 +7,7 @@
 #include <argos3/plugins/robots/generic/simulator/wifi_default_actuator.h>
 #include <argos3/plugins/robots/pi-puck/simulator/pipuck_entity.h>
 
-#define CSV_HEADER "\"foraging robots\"\t\"building robots\"\t\"average estimate\"\t\"average deviation\"\t\"construction events\"\t\"blocks in cache\"\t\"average degree\""
+#define CSV_HEADER "\"foraging robots\"\t\"building robots\"\t\"construction events\"\t\"density ground truth\"\t\"density estimate\"\t\"average deviation\"\t\"average degree\""
 
 #define WALL_THICKNESS 0.025
 #define MAX_ATTEMPTS 1000
@@ -345,9 +345,8 @@ namespace argos {
       UInt32 unShadedCells =
          std::count(std::begin(m_vecCells), std::end(m_vecCells), true);
       /* get the current estimate value from each building robot */
-	   Real fEstimate = 0.0, fTotalEstimate = 0.0,
-           fDeviation = 0.0, fTotalDeviation = 0.0,
-           fDegree = 0.0, fTotalDegree = 0.0;
+      std::vector<Real> vecRobotEstimates;
+      std::vector<Real> vecRobotDegrees;
       if(unBuildingRobotsCount > 0) {
 		   for(std::pair<const std::string, SPiPuck>& c_pair : m_mapRobots) {
 			   SPiPuck& sPiPuck = c_pair.second;
@@ -359,47 +358,20 @@ namespace argos {
                   /* read estimate from each robot */
                   const std::string& strEstimateBuffer =
                      sPiPuck.Entity->GetDebugEntity().GetBuffer("set_estimate");
+                  Real fEstimate = 0.0;
                   std::istringstream(strEstimateBuffer) >> fEstimate;
-                  fTotalEstimate += fEstimate;
-                  /* read deviation from each robot */
-                  const std::string& strDeviationBuffer =
-                     sPiPuck.Entity->GetDebugEntity().GetBuffer("set_deviation");
-                  std::istringstream(strDeviationBuffer) >> fDeviation;
-                  fTotalDeviation += Abs(fDeviation);
+                  vecRobotEstimates.push_back(fEstimate);
                   /* read degree from each robot */
                   const std::string& strDegreeBuffer =
                      sPiPuck.Entity->GetDebugEntity().GetBuffer("set_degree");
+                  Real fDegree = 0.0;
                   std::istringstream(strDegreeBuffer) >> fDegree;
-                  fTotalDegree += fDegree;
+                  vecRobotDegrees.push_back(fDegree);
                   /* increment the count of the exploring robots */
                   unExploringRobotsCount++;
 				   }
 			   }
 		   }
-	   }
-	   UInt32 unTotalConstructionEvents = 0;
-	   for(UInt32 un_count : m_vecConstructionEvents) {
-		   unTotalConstructionEvents += un_count;
-	   }
-      /* print the results */
-      if(unExploringRobotsCount != 0) {
-		   Real fAverageEstimate = fTotalEstimate / static_cast<Real>(unExploringRobotsCount);
-		   Real fAverageDeviation = fTotalDeviation / static_cast<Real>(unExploringRobotsCount);
-		   Real fAverageDegree = fTotalDegree / static_cast<Real>(unExploringRobotsCount);
-		   /* write output */
-		   if(m_pcOutput->good()) {
-			   *m_pcOutput << unForagingRobotsCount << '\t'
-                        << unBuildingRobotsCount << '\t'
-                        << fAverageEstimate << '\t'
-                        << fAverageDeviation << '\t'
-                        << unTotalConstructionEvents << '\t'
-                        << unShadedCells / static_cast<Real>(m_arrGridLayout[0] * m_arrGridLayout[1]) << '\t'
-                        << fAverageDegree 
-                        << std::endl;
-		   }
-         else {
-           THROW_ARGOSEXCEPTION("Output stream is not ready");
-         }
 	   }
       /* handle cell unshading */
       /* get the number of block attachments for this step */
@@ -472,7 +444,6 @@ namespace argos {
                   sPiPuck.Entity = 
                      new CPiPuckEntity(strId, sPiPuck.Controller, cPosition, cOrientation, false, "wifi");
                   AddEntity(*sPiPuck.Entity);
-                  std::cerr << ".";
                   if(sPiPuck.Entity->GetEmbodiedEntity().IsCollidingWithSomething()) {
                      RemoveEntity(*sPiPuck.Entity);
                      sPiPuck.Entity = nullptr;
@@ -499,35 +470,32 @@ namespace argos {
                }
                /* do not shade cells when the robots are added just after initialization */
                if(GetSpace().GetSimulationClock() > 5) {
-                  /* only shade a cell if an unshaded cell exists */
-                  if(unShadedCells < m_arrGridLayout[0] * m_arrGridLayout[1]) {
-                     if(m_eShadingDistribution == EShadingDistribution::BIASED) {
-                        Real fMeanX = WALL_THICKNESS + cArenaSize.GetX() / 4.0;
-                        Real fMeanY = WALL_THICKNESS + cArenaSize.GetY() / 4.0;
-                        for(UInt32 un_attempt = 0; un_attempt < MAX_ATTEMPTS; un_attempt++) {
-                           CVector2 cRandomPosition(GetSimulator().GetRNG()->Gaussian(fMeanX / 4.0, fMeanX),
-                                                    GetSimulator().GetRNG()->Gaussian(fMeanY / 4.0, fMeanY));
-                           if(IsOnGrid(cRandomPosition)) {
-                              const std::pair<UInt32, UInt32>& cRandomCoordinates =
-                                 GetGridCoordinatesFor(cRandomPosition);
-                              if(!m_vecCells.at(cRandomCoordinates.first + m_arrGridLayout[0] * cRandomCoordinates.second)) {
-                                 m_vecCells.at(cRandomCoordinates.first + m_arrGridLayout[0] * cRandomCoordinates.second) = true;
-                                 break;
-                              }
+                  if(m_eShadingDistribution == EShadingDistribution::BIASED) {
+                     Real fMeanX = WALL_THICKNESS + cArenaSize.GetX() / 4.0;
+                     Real fMeanY = WALL_THICKNESS + cArenaSize.GetY() / 4.0;
+                     for(UInt32 un_attempt = 0; un_attempt < MAX_ATTEMPTS; un_attempt++) {
+                        CVector2 cRandomPosition(GetSimulator().GetRNG()->Gaussian(fMeanX / 4.0, fMeanX),
+                                                 GetSimulator().GetRNG()->Gaussian(fMeanY / 4.0, fMeanY));
+                        if(IsOnGrid(cRandomPosition)) {
+                           const std::pair<UInt32, UInt32>& cRandomCoordinates =
+                              GetGridCoordinatesFor(cRandomPosition);
+                           if(!m_vecCells.at(cRandomCoordinates.first + m_arrGridLayout[0] * cRandomCoordinates.second)) {
+                              m_vecCells.at(cRandomCoordinates.first + m_arrGridLayout[0] * cRandomCoordinates.second) = true;
+                              break;
                            }
                         }
                      }
-                     else if(m_eShadingDistribution == EShadingDistribution::UNIFORM) {
-                        CRange<UInt32> cXRange(0, m_arrGridLayout[0]);
-                        CRange<UInt32> cYRange(0, m_arrGridLayout[1]);
-                        for(UInt32 un_attempt = 0; un_attempt < MAX_ATTEMPTS; un_attempt++) {
-                           UInt32 unX = GetSimulator().GetRNG()->Uniform(cXRange);
-                           UInt32 unY = GetSimulator().GetRNG()->Uniform(cYRange);
-                           if(m_vecCells.at(unX + m_arrGridLayout[0] * unY) == false) {
-                              /* shade the unshaded tile */
-                              m_vecCells[unX + m_arrGridLayout[0] * unY] = true;
-                              break;
-                           }
+                  }
+                  else if(m_eShadingDistribution == EShadingDistribution::UNIFORM) {
+                     CRange<UInt32> cXRange(0, m_arrGridLayout[0]);
+                     CRange<UInt32> cYRange(0, m_arrGridLayout[1]);
+                     for(UInt32 un_attempt = 0; un_attempt < MAX_ATTEMPTS; un_attempt++) {
+                        UInt32 unX = GetSimulator().GetRNG()->Uniform(cXRange);
+                        UInt32 unY = GetSimulator().GetRNG()->Uniform(cYRange);
+                        if(m_vecCells.at(unX + m_arrGridLayout[0] * unY) == false) {
+                           /* shade the unshaded tile */
+                           m_vecCells[unX + m_arrGridLayout[0] * unY] = true;
+                           break;
                         }
                      }
                   }
@@ -540,6 +508,43 @@ namespace argos {
             }
          }
       }
+      /* print the results to the output */
+      if(unExploringRobotsCount != 0) {
+         /* calculate the average estimate */
+         Real fAverageEstimate = 0.0;
+         for(const Real& fValue : vecRobotEstimates) {
+            fAverageEstimate += fValue;
+         }
+         fAverageEstimate /= static_cast<Real>(vecRobotEstimates.size());
+         /* calculate the average deviation */
+         Real fAverageDeviation = 0.0;
+         for(const Real& fValue : vecRobotEstimates) {
+            fAverageDeviation += Abs(fAverageEstimate - fValue);
+         }
+         fAverageDeviation /= static_cast<Real>(vecRobotEstimates.size());
+         /* calculate the average degree */
+		   Real fAverageDegree = 0.0;
+         for(const Real& fValue : vecRobotDegrees) {
+            fAverageDegree += fValue;
+         }
+         fAverageDegree /= static_cast<Real>(vecRobotDegrees.size());
+         /* calculate the ground truth */
+         Real fDensityGroundTruth =
+            unShadedCells / static_cast<Real>(m_arrGridLayout[0] * m_arrGridLayout[1]);
+		   /* write output */
+		   if(m_pcOutput->good()) {
+			   *m_pcOutput << unForagingRobotsCount << '\t'
+                        << unBuildingRobotsCount << '\t'
+                        << unConstructionEvents << '\t'
+                        << fDensityGroundTruth << '\t'
+                        << fAverageEstimate << '\t'
+                        << fAverageDeviation << '\t'
+                        << fAverageDegree << std::endl;
+		   }
+         else {
+           THROW_ARGOSEXCEPTION("Output stream is not ready");
+         }
+	   }
    }
 
    /****************************************/

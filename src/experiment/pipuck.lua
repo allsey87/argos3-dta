@@ -15,7 +15,7 @@ function init()
       --[[ create an entry in the robot table to store
          the robot's estimates ]]--
       estimate = 0.0,
-      prev_iter_estimate = estimate,
+      prev_iter_estimate = 0.0,
       deviation = 0.0,
       --[[ create an entry in the robot table to store
          the robot's state ]]--
@@ -53,7 +53,6 @@ function init()
                return false, false
             end,
             function()
-               -- turn!
                robot.differential_drive.set_target_velocity(0.05, 0.05)
                return true
             end,
@@ -63,117 +62,93 @@ function init()
             return true
          end,
       }
-   })
-
-   
+   })  
    --[[ create an entry in the robot table to store
         the decision-making process ]]--
    robot.listen = function()
       -- local variables to calculate the average over the neighborhood
-      local average_est, average_dev = 0.0, 0.0
+      local average_est = 0.0
       robot.variables.degree = 0
       for index, message in ipairs(robot.wifi.rx_data) do
          average_est = average_est + message.est
-         average_dev = average_dev + message.dev
          robot.variables.degree = robot.variables.degree + 1.0
       end
       if robot.variables.degree > 0 then
          average_est = average_est/robot.variables.degree 
-         average_dev = average_dev/robot.variables.degree 
          robot.variables.estimate = robot.variables.estimate + 0.5 * (average_est - robot.variables.estimate)
-         robot.variables.deviation = robot.variables.deviation + 0.5 * (average_dev - robot.variables.deviation)
       end
    end  
 end
 
 
 function step()
-
    -- tick obstacle avoidance behavior tree
    robot.avoid_obstacles()
-   
    -- sets the current robot task, i.e. foraging, exploring or initial_exploration
-   robot.debug.set_task(robot.variables.state) 
-   
-   --~ -- put the robot id and the value of the ground accumlator in a table
+   robot.debug.set_task(robot.variables.state)
+   -- put the robot id and the value of the ground accumlator in a table
    if robot.variables.state == "exploring" then
-   --~ the robot is exploring the arena/cache in search for shaded tiles/building blocks
-      --~ decrement the number of time steps a robot is exploring
+      -- the robot is exploring the arena/cache in search for shaded tiles/building blocks
+      -- decrement the number of time steps a robot is exploring
       robot.variables.curr_expl_time = robot.variables.curr_expl_time + 1.0
-      --~ -- count the number of time steps a robot is on a shaded tile
-      --~ robot.variables.accumulator = 0
+      -- count the number of time steps a robot is on a shaded tile
+      -- robot.variables.accumulator = 0
       if robot.ground.center.reading < 0.75 then
         robot.variables.accumulator = robot.variables.accumulator + 1.0
       end
-      
-      --~ the robot averages its accumulator measurements over robot.variables.tot_diss_time+1 seconds
+      -- the robot averages its accumulator measurements over robot.variables.tot_diss_time+1 seconds
       if robot.variables.curr_expl_time >= robot.variables.tot_expl_time+1 then
         -- update the robot's extimate and deviation from the desired density opt_dens
-        --~ robot.variables.estimate = (robot.variables.estimate * robot.variables.prev_tot_expl_time + robot.variables.accumulator) / (1.0*robot.variables.curr_expl_time)
-        robot.variables.estimate = (1.0*robot.variables.accumulator) / (1.0*robot.variables.curr_expl_time)
+        -- robot.variables.estimate = (robot.variables.estimate * robot.variables.prev_tot_expl_time + robot.variables.accumulator) / (1.0*robot.variables.curr_expl_time)
+        robot.variables.estimate = (1.0 * robot.variables.accumulator) / (1.0 * robot.variables.curr_expl_time)
         robot.variables.deviation = (robot.variables.estimate - robot.constants.opt_dens)
         robot.variables.prev_iter_estimate = robot.variables.estimate
-        
         robot.variables.prev_tot_expl_time = robot.variables.curr_expl_time
         robot.variables.curr_expl_time = 0
         robot.variables.accumulator = 0
         robot.variables.tot_expl_time = robot.random.poisson(robot.constants.m)
-        
         -- switch probabilistically to foraging, iff (robot.variables.estimate - robot.constants.opt_dens) < 0
         if robot.random.uniform() < robot.constants.opt_dens and robot.variables.deviation < 0 then
           robot.variables.state = "foraging"
         end
      end
-     -- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-      
-     --~ put the robot id and the value of the ground accumlator in a table
+     --~ put the robot id and its estimate in a table
       local data = {
          id = robot.id,
          est = robot.variables.estimate,
-         dev = robot.variables.deviation
       }
-      
-      --~ broadcast that table over wifi
+      -- broadcast that table over wifi
       robot.wifi.tx_data(data)
-      
-      --~ now listen to others
+      -- now listen to others
       robot.listen()
-   --~ perform the initial_exploration if you just arrived from foraging
+   -- perform the initial_exploration if you just arrived from foraging
    elseif robot.variables.state == "initial_estimation" then
-      --~ decrement the number of time steps a robot is perorming initial_estimation
+      -- decrement the number of time steps a robot is perorming initial_estimation
       robot.variables.curr_expl_time = robot.variables.curr_expl_time + 1.0
       
-      --~ -- count the number of time steps a robot is on a shaded tile
+      -- count the number of time steps a robot is on a shaded tile
       if robot.ground.center.reading < 0.75 then
         robot.variables.accumulator = robot.variables.accumulator + 1.0
       end
-      
-      --~ Has the robot finished initial exploration?
+      -- has the robot finished initial exploration?
       if robot.variables.curr_expl_time >= robot.variables.tot_init_expl_time then
-        
-         --~ Prepare the robot to switch to exploring
+         -- Prepare the robot to switch to exploring
          robot.variables.state = "exploring"
-        
          robot.variables.estimate = robot.variables.accumulator / (1.0*robot.variables.curr_expl_time)
          robot.variables.prev_iter_estimate = robot.variables.estimate
          robot.variables.accumulator = 0
-        
          robot.variables.prev_tot_expl_time = robot.variables.curr_expl_time
          robot.variables.curr_expl_time = 0
          robot.variables.tot_expl_time = robot.random.poisson(robot.constants.m)
       end
-     -- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    end
    -- send the current estimate, deviation and degree to the loop functions
    local estimate = string.format("%3.5f", robot.variables.estimate)
    estimate = estimate:gsub(",", ".")
-   robot.debug.set_estimate( estimate )
-   local deviation = string.format("%3.5f", robot.variables.deviation)
-   deviation = deviation:gsub(",", ".")
-   robot.debug.set_deviation( deviation )
+   robot.debug.set_estimate(estimate)
    local degree = string.format("%3.5f", robot.variables.degree)
    degree = degree:gsub(",", ".")
-   robot.debug.set_degree( degree )
+   robot.debug.set_degree(degree)
 end
 
 function reset() end
