@@ -28,12 +28,12 @@ The ARGoS configuration files for running experiments in a small, medium, and la
 ### Output of experiment
 The output of the loop functions is tab seperated values. The values are defined as follows:
    * foraging robots: number of robots currently foraging blocks
-   * building robots: number of robots currently in the cache (capable of observing the local density of tiles)
-   * average estimate: TODO
-   * average deviation: TODO
-   * construction events: TODO
-   * blocks in cache: TODO
-   * average degree: TODO
+   * building robots: number of robots currently in the cache area (either in the initial_estimation or exploring state)
+   * construction events: the number of blocks that have been used for construction in this tick
+   * density ground truth: the number of blocks in the cache (as a fraction of the cache capacity)
+   * density estimate: the swarm level estimate of the number of blocks in the cache
+   * average deviation: the average error between each robot's estimate and the swarm level estimate (i.e., the amount of disagreement)
+   * average degree: the average connectivity of the swarm
 
 ## Limitations
 The loop functions work in part by adding and removing robots from the simulation. The QtOpenGL visualization can not handle the removal of robots from the simulator while they are **selected** and this will cause ARGoS to crash with a segmentation fault. It recommended that you do not step or run the simulation while robots are selected in the visualization.
