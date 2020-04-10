@@ -178,7 +178,7 @@ namespace argos {
    /****************************************/
 
    CDTALoopFunctions::CDTALoopFunctions() :
-      m_arrGridLayout{0.0, 0.0},
+      m_arrGridLayout({0, 0}),
       m_fMeanForagingDurationInitial(0.0),
       m_fMeanForagingDurationGradient(0.0),
       m_unConstructionLimit(0),
