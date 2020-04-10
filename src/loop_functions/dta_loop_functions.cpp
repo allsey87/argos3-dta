@@ -345,9 +345,10 @@ namespace argos {
       UInt32 unShadedCells =
          std::count(std::begin(m_vecCells), std::end(m_vecCells), true);
       /* get the current estimate value from each building robot */
-	   Real fEstimate = 0.0,
-         avg_fEstimate = 0.0, fDeviation = 0.0, avg_fDeviation = 0.0, fDegree = 0.0, avg_fDegree = 0.0;
-      if(unBuildingRobotsCount > 0){
+	   Real fEstimate = 0.0, fTotalEstimate = 0.0,
+           fDeviation = 0.0, fTotalDeviation = 0.0,
+           fDegree = 0.0, fTotalDegree = 0.0;
+      if(unBuildingRobotsCount > 0) {
 		   for(std::pair<const std::string, SPiPuck>& c_pair : m_mapRobots) {
 			   SPiPuck& sPiPuck = c_pair.second;
 			   /* only consider robots currently performing the construction task */
@@ -355,21 +356,21 @@ namespace argos {
                const std::string& strSetTaskBuffer =
                   sPiPuck.Entity->GetDebugEntity().GetBuffer("set_task");
                if(strSetTaskBuffer.find("exploring") != std::string::npos) {
-                  /* read estimate from robot */
+                  /* read estimate from each robot */
                   const std::string& strEstimateBuffer =
                      sPiPuck.Entity->GetDebugEntity().GetBuffer("set_estimate");
                   std::istringstream(strEstimateBuffer) >> fEstimate;
-                  avg_fEstimate += fEstimate;
-                  /* read deviation from robot */
+                  fTotalEstimate += fEstimate;
+                  /* read deviation from each robot */
                   const std::string& strDeviationBuffer =
                      sPiPuck.Entity->GetDebugEntity().GetBuffer("set_deviation");
                   std::istringstream(strDeviationBuffer) >> fDeviation;
-                  avg_fDeviation += fDeviation;
-                  /* read degree from robot */
+                  fTotalDeviation += Abs(fDeviation);
+                  /* read degree from each robot */
                   const std::string& strDegreeBuffer =
                      sPiPuck.Entity->GetDebugEntity().GetBuffer("set_degree");
                   std::istringstream(strDegreeBuffer) >> fDegree;
-                  avg_fDegree += fDegree;
+                  fTotalDegree += fDegree;
                   /* increment the count of the exploring robots */
                   unExploringRobotsCount++;
 				   }
@@ -382,18 +383,18 @@ namespace argos {
 	   }
       /* print the results */
       if(unExploringRobotsCount != 0) {
-		   avg_fEstimate = avg_fEstimate / static_cast<Real>(unExploringRobotsCount);
-		   avg_fDeviation = avg_fDeviation / static_cast<Real>(unExploringRobotsCount);
-		   avg_fDegree = avg_fDegree / static_cast<Real>(unExploringRobotsCount);
+		   Real fAverageEstimate = fTotalEstimate / static_cast<Real>(unExploringRobotsCount);
+		   Real fAverageDeviation = fTotalDeviation / static_cast<Real>(unExploringRobotsCount);
+		   Real fAverageDegree = fTotalDegree / static_cast<Real>(unExploringRobotsCount);
 		   /* write output */
 		   if(m_pcOutput->good()) {
 			   *m_pcOutput << unForagingRobotsCount << '\t'
                         << unBuildingRobotsCount << '\t'
-                        << avg_fEstimate << '\t'
-                        << avg_fDeviation << '\t'
+                        << fAverageEstimate << '\t'
+                        << fAverageDeviation << '\t'
                         << unTotalConstructionEvents << '\t'
                         << unShadedCells / static_cast<Real>(m_arrGridLayout[0] * m_arrGridLayout[1]) << '\t'
-                        << avg_fDegree 
+                        << fAverageDegree 
                         << std::endl;
 		   }
          else {
@@ -462,7 +463,7 @@ namespace argos {
                /* respawn robot with random position and orientation (minus 5 cm from the boundary) */
                CRange<Real> cXRange(0.05, cArenaSize.GetX() - 0.05);
                CRange<Real> cYRange(0.05, cArenaSize.GetY() - 0.05);
-               for(;;) {
+               for(UInt32 un_attempt = 0; un_attempt < MAX_ATTEMPTS; un_attempt++) {
                   Real fX = GetSimulator().GetRNG()->Uniform(cXRange);
                   Real fY = GetSimulator().GetRNG()->Uniform(cYRange);
                   CRadians cZ = GetSimulator().GetRNG()->Uniform(CRadians::SIGNED_RANGE);
@@ -503,7 +504,7 @@ namespace argos {
                      if(m_eShadingDistribution == EShadingDistribution::BIASED) {
                         Real fMeanX = WALL_THICKNESS + cArenaSize.GetX() / 4.0;
                         Real fMeanY = WALL_THICKNESS + cArenaSize.GetY() / 4.0;
-                        for(;;) {
+                        for(UInt32 un_attempt = 0; un_attempt < MAX_ATTEMPTS; un_attempt++) {
                            CVector2 cRandomPosition(GetSimulator().GetRNG()->Gaussian(fMeanX / 4.0, fMeanX),
                                                     GetSimulator().GetRNG()->Gaussian(fMeanY / 4.0, fMeanY));
                            if(IsOnGrid(cRandomPosition)) {
@@ -519,7 +520,7 @@ namespace argos {
                      else if(m_eShadingDistribution == EShadingDistribution::UNIFORM) {
                         CRange<UInt32> cXRange(0, m_arrGridLayout[0]);
                         CRange<UInt32> cYRange(0, m_arrGridLayout[1]);
-                        for(;;) {
+                        for(UInt32 un_attempt = 0; un_attempt < MAX_ATTEMPTS; un_attempt++) {
                            UInt32 unX = GetSimulator().GetRNG()->Uniform(cXRange);
                            UInt32 unY = GetSimulator().GetRNG()->Uniform(cYRange);
                            if(m_vecCells.at(unX + m_arrGridLayout[0] * unY) == false) {
