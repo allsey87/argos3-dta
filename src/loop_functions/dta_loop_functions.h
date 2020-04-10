@@ -1,5 +1,5 @@
-#ifndef DTA_ABSTRACT_LOOP_FUNCTIONS_H
-#define DTA_ABSTRACT_LOOP_FUNCTIONS_H
+#ifndef DTA_LOOP_FUNCTIONS_H
+#define DTA_LOOP_FUNCTIONS_H
 
 namespace argos {
    class CPiPuckEntity;
@@ -16,7 +16,7 @@ namespace argos {
 
 namespace argos {
 
-   class CDTAAbstractLoopFunctions : public CLoopFunctions {
+   class CDTALoopFunctions : public CLoopFunctions {
 
    public:
 
@@ -38,9 +38,9 @@ namespace argos {
 
    public:
 
-      CDTAAbstractLoopFunctions();
+      CDTALoopFunctions();
 
-      virtual ~CDTAAbstractLoopFunctions() {}
+      virtual ~CDTALoopFunctions() {}
 
       virtual void Init(TConfigurationNode& t_tree);
 
@@ -51,6 +51,10 @@ namespace argos {
       virtual void Destroy();
 
       virtual void PostStep();
+
+      bool IsOnGrid(const CVector2& c_position);
+
+      std::pair<UInt32, UInt32> GetGridCoordinatesFor(const CVector2& c_position);
 
    private:
       /* loop function configuration */

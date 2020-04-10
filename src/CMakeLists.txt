@@ -42,22 +42,12 @@ configure_file(
 # Configure templates
 #
 configure_file(
-  ${CMAKE_SOURCE_DIR}/experiment/small-proximity.argos.in
-  ${CMAKE_BINARY_DIR}/experiment/small-proximity.argos)
+  ${CMAKE_SOURCE_DIR}/experiment/small.argos.in
+  ${CMAKE_BINARY_DIR}/experiment/small.argos)
 configure_file(
-  ${CMAKE_SOURCE_DIR}/experiment/medium-proximity.argos.in
-  ${CMAKE_BINARY_DIR}/experiment/medium-proximity.argos)
+  ${CMAKE_SOURCE_DIR}/experiment/medium.argos.in
+  ${CMAKE_BINARY_DIR}/experiment/medium.argos)
 configure_file(
-  ${CMAKE_SOURCE_DIR}/experiment/large-proximity.argos.in
-  ${CMAKE_BINARY_DIR}/experiment/large-proximity.argos)
-
-configure_file(
-  ${CMAKE_SOURCE_DIR}/experiment/small-nocomm.argos.in
-  ${CMAKE_BINARY_DIR}/experiment/small-nocomm.argos)
-configure_file(
-  ${CMAKE_SOURCE_DIR}/experiment/medium-nocomm.argos.in
-  ${CMAKE_BINARY_DIR}/experiment/medium-nocomm.argos)
-configure_file(
-  ${CMAKE_SOURCE_DIR}/experiment/large-nocomm.argos.in
-  ${CMAKE_BINARY_DIR}/experiment/large-nocomm.argos)
+  ${CMAKE_SOURCE_DIR}/experiment/large.argos.in
+  ${CMAKE_BINARY_DIR}/experiment/large.argos)
 

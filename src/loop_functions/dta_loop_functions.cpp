@@ -1,4 +1,4 @@
-#include "dta_abstract_loop_functions.h"
+#include "dta_loop_functions.h"
 
 #include <argos3/core/simulator/entity/floor_entity.h>
 #include <argos3/core/utility/math/rng.h>
@@ -8,6 +8,9 @@
 #include <argos3/plugins/robots/pi-puck/simulator/pipuck_entity.h>
 
 #define CSV_HEADER "\"foraging robots\"\t\"building robots\"\t\"average estimate\"\t\"average deviation\"\t\"construction events\"\t\"blocks in cache\"\t\"average degree\""
+
+#define WALL_THICKNESS 0.025
+#define MAX_ATTEMPTS 1000
 
 namespace argos {
 
@@ -174,7 +177,7 @@ namespace argos {
    /****************************************/
    /****************************************/
 
-   CDTAAbstractLoopFunctions::CDTAAbstractLoopFunctions() :
+   CDTALoopFunctions::CDTALoopFunctions() :
       m_arrGridLayout{0.0, 0.0},
       m_fMeanForagingDurationInitial(0.0),
       m_fMeanForagingDurationGradient(0.0),
@@ -190,7 +193,7 @@ namespace argos {
    /****************************************/
    /****************************************/
 
-   void CDTAAbstractLoopFunctions::Init(TConfigurationNode& t_tree) {
+   void CDTALoopFunctions::Init(TConfigurationNode& t_tree) {
       GetNodeAttributeOrDefault(t_tree, "output", m_strOutputFilename, m_strOutputFilename);
       if(m_strOutputFilename.empty()) {
          m_pcOutput = &std::cout;
@@ -257,15 +260,12 @@ namespace argos {
                              std::forward_as_tuple(strId),
                              std::forward_as_tuple(strController, setCanSendTo));
       }
-      for(size_t i = 0; i < m_vecCells.size(); i++) {
-		   m_vecCells[i] = (GetSimulator().GetRNG()->Uniform(CRange<Real>(0.0, 1.0)) > 1.0);
-	   }  
    }
 
    /****************************************/
    /****************************************/
 
-   void CDTAAbstractLoopFunctions::Reset() {
+   void CDTALoopFunctions::Reset() {
       /* remove all robots */
       for(std::pair<const std::string, SPiPuck>& c_pair : m_mapRobots) {
          SPiPuck& s_pipuck = c_pair.second;
@@ -302,7 +302,7 @@ namespace argos {
    /****************************************/
    /****************************************/
 
-   void CDTAAbstractLoopFunctions::Destroy() {
+   void CDTALoopFunctions::Destroy() {
       if(m_pcOutput != &std::cout) {
          delete m_pcOutput;
       }
@@ -311,34 +311,13 @@ namespace argos {
    /****************************************/
    /****************************************/
 
-
-   #define WALL_THICKNESS 0.025
-/*
-   bool IsOnGrid(const CVector2& c_position) {
-      const CVector3& cArenaSize = GetSpace().GetArenaSize();
-      CRange<Real> cXRange(WALL_THICKNESS, cArenaSize.GetX() - WALL_THICKNESS);
-      CRange<Real> cYRange(WALL_THICKNESS, cArenaSize.GetY() - WALL_THICKNESS);
-      return (cXRange.WithinMinBoundIncludedMaxBoundIncluded(c_position.GetX()) &&
-              cYRange.WithinMinBoundIncludedMaxBoundIncluded(c_position.GetY()));
-   }
-
-   std::pair<UInt32, UInt32> GetGridCoordinates(c_position) {
-      UInt32 unX = static_cast<UInt32>((c_position.GetX() - WALL_THICKNESS) * m_arrGridLayout.at(0) / (cArenaSize.GetX() - 2 * WALL_THICKNESS));
-      UInt32 unY = static_cast<UInt32>((c_position.GetY() - WALL_THICKNESS) * m_arrGridLayout.at(1) / (cArenaSize.GetY() - 2 * WALL_THICKNESS));
-      return std::make_pair<UInt32, UInt32>(unX, unY);
-   }
-*/
-   CColor CDTAAbstractLoopFunctions::GetFloorColor(const CVector2& c_position) {
-      const CVector3& cArenaSize = GetSpace().GetArenaSize();
-      CRange<Real> cXRange(WALL_THICKNESS, cArenaSize.GetX() - WALL_THICKNESS);
-      CRange<Real> cYRange(WALL_THICKNESS, cArenaSize.GetY() - WALL_THICKNESS);
-      if(cXRange.WithinMinBoundIncludedMaxBoundIncluded(c_position.GetX()) &&
-         cYRange.WithinMinBoundIncludedMaxBoundIncluded(c_position.GetY())) {
-         /* convert c_position into cell coordinates */
-         UInt32 unX = static_cast<UInt32>((c_position.GetX() - WALL_THICKNESS) * m_arrGridLayout.at(0) / (cArenaSize.GetX() - 2 * WALL_THICKNESS));
-         UInt32 unY = static_cast<UInt32>((c_position.GetY() - WALL_THICKNESS) * m_arrGridLayout.at(1) / (cArenaSize.GetY() - 2 * WALL_THICKNESS));
+   CColor CDTALoopFunctions::GetFloorColor(const CVector2& c_position) {
+      if(IsOnGrid(c_position)) {
+         const std::pair<UInt32, UInt32>& cCoordinates = 
+            GetGridCoordinatesFor(c_position);
          /* shade cell if occupied */
-         return m_vecCells.at(unX + m_arrGridLayout[0] * unY) ? CColor::GRAY50 : CColor::GRAY80;
+         return m_vecCells.at(cCoordinates.first + m_arrGridLayout[0] * cCoordinates.second) ?
+            CColor::GRAY50 : CColor::GRAY80;
       }
       else {
          return CColor::WHITE;
@@ -348,7 +327,7 @@ namespace argos {
    /****************************************/
    /****************************************/
 
-   void CDTAAbstractLoopFunctions::PostStep() {
+   void CDTALoopFunctions::PostStep() {
       /* total number of robots */
       UInt32 unRobotsCount = m_mapRobots.size();
       /* count the robots that are foraging */
@@ -371,12 +350,11 @@ namespace argos {
       if(unBuildingRobotsCount > 0){
 		   for(std::pair<const std::string, SPiPuck>& c_pair : m_mapRobots) {
 			   SPiPuck& sPiPuck = c_pair.second;
-			   //const std::string& strId = c_pair.first;
 			   /* only consider robots currently performing the construction task */
 			   if(sPiPuck.Entity != nullptr) {
                const std::string& strSetTaskBuffer =
                   sPiPuck.Entity->GetDebugEntity().GetBuffer("set_task");
-               if(strSetTaskBuffer == "exploring") {
+               if(strSetTaskBuffer.find("exploring") != std::string::npos) {
                   /* read estimate from robot */
                   const std::string& strEstimateBuffer =
                      sPiPuck.Entity->GetDebugEntity().GetBuffer("set_estimate");
@@ -392,7 +370,7 @@ namespace argos {
                      sPiPuck.Entity->GetDebugEntity().GetBuffer("set_degree");
                   std::istringstream(strDegreeBuffer) >> fDegree;
                   avg_fDegree += fDegree;
-                  /* */
+                  /* increment the count of the exploring robots */
                   unExploringRobotsCount++;
 				   }
 			   }
@@ -432,12 +410,11 @@ namespace argos {
       for(std::pair<const std::string, SPiPuck>& c_pair : m_mapRobots) {
          SPiPuck& sPiPuck = c_pair.second;
          if(sPiPuck.Entity != nullptr) {
-            const CVector3& cPosition =
-               sPiPuck.Entity->GetEmbodiedEntity().GetOriginAnchor().Position;
-            UInt32 unX = static_cast<UInt32>(cPosition.GetX() * m_arrGridLayout.at(0) / cArenaSize.GetX());
-            UInt32 unY = static_cast<UInt32>(cPosition.GetY() * m_arrGridLayout.at(1) / cArenaSize.GetY());
+            const CVector3& cPosition = sPiPuck.Entity->GetEmbodiedEntity().GetOriginAnchor().Position;
+            const std::pair<UInt32, UInt32>& cCoordinates =
+               GetGridCoordinatesFor(CVector2(cPosition.GetX(), cPosition.GetY()));
             /* check if robot has moved to a different cell */
-            if((unX != sPiPuck.PreviousX) || (unY != sPiPuck.PreviousY)) {
+            if((cCoordinates.first != sPiPuck.PreviousX) || (cCoordinates.second != sPiPuck.PreviousY)) {
                UInt32 unCellIndex = sPiPuck.PreviousX + m_arrGridLayout[0] * sPiPuck.PreviousY;
                if(m_vecCells.at(unCellIndex)) {
                   UInt32 unTotalConstructionEvents = 0;
@@ -450,8 +427,8 @@ namespace argos {
                      GetSpace().GetFloorEntity().SetChanged();
                   }
                }
-               sPiPuck.PreviousX = unX;
-               sPiPuck.PreviousY = unY;
+               sPiPuck.PreviousX = cCoordinates.first;
+               sPiPuck.PreviousY = cCoordinates.second;
 			   }
 		   }
 	   }
@@ -492,8 +469,9 @@ namespace argos {
                   CVector3 cPosition(fX, fY, 0);
                   CQuaternion cOrientation(cZ, CVector3::Z);
                   sPiPuck.Entity = 
-                     new CPiPuckEntity(strId, sPiPuck.Controller, cPosition, cOrientation);
+                     new CPiPuckEntity(strId, sPiPuck.Controller, cPosition, cOrientation, false, "wifi");
                   AddEntity(*sPiPuck.Entity);
+                  std::cerr << ".";
                   if(sPiPuck.Entity->GetEmbodiedEntity().IsCollidingWithSomething()) {
                      RemoveEntity(*sPiPuck.Entity);
                      sPiPuck.Entity = nullptr;
@@ -522,32 +500,29 @@ namespace argos {
                if(GetSpace().GetSimulationClock() > 5) {
                   /* only shade a cell if an unshaded cell exists */
                   if(unShadedCells < m_arrGridLayout[0] * m_arrGridLayout[1]) {
-                     CRange<UInt32> cXRange(0, m_arrGridLayout[0]);
-                     CRange<UInt32> cYRange(0, m_arrGridLayout[1]);
                      if(m_eShadingDistribution == EShadingDistribution::BIASED) {
-                        Real fMeanX = m_arrGridLayout[0] / 4.0;
-                        Real fMeanY = m_arrGridLayout[1] / 4.0;
+                        Real fMeanX = WALL_THICKNESS + cArenaSize.GetX() / 4.0;
+                        Real fMeanY = WALL_THICKNESS + cArenaSize.GetY() / 4.0;
                         for(;;) {
-                           Real fX = GetSimulator().GetRNG()->Poisson(fMeanX);
-                           Real fY = GetSimulator().GetRNG()->Poisson(fMeanY);
-                           UInt32 unX = static_cast<Real>(std::round(fX));
-                           UInt32 unY = static_cast<Real>(std::round(fY));
-                           if(cXRange.WithinMinBoundIncludedMaxBoundExcluded(unX) &&
-                              cYRange.WithinMinBoundIncludedMaxBoundExcluded(unY) &&
-                              m_vecCells.at(unX + m_arrGridLayout[0] * unY) == false) {
-                              /* shade the unshaded tile */
-                              m_vecCells[unX + m_arrGridLayout[0] * unY] = true;
-                              break;
+                           CVector2 cRandomPosition(GetSimulator().GetRNG()->Gaussian(fMeanX / 4.0, fMeanX),
+                                                    GetSimulator().GetRNG()->Gaussian(fMeanY / 4.0, fMeanY));
+                           if(IsOnGrid(cRandomPosition)) {
+                              const std::pair<UInt32, UInt32>& cRandomCoordinates =
+                                 GetGridCoordinatesFor(cRandomPosition);
+                              if(!m_vecCells.at(cRandomCoordinates.first + m_arrGridLayout[0] * cRandomCoordinates.second)) {
+                                 m_vecCells.at(cRandomCoordinates.first + m_arrGridLayout[0] * cRandomCoordinates.second) = true;
+                                 break;
+                              }
                            }
                         }
                      }
                      else if(m_eShadingDistribution == EShadingDistribution::UNIFORM) {
+                        CRange<UInt32> cXRange(0, m_arrGridLayout[0]);
+                        CRange<UInt32> cYRange(0, m_arrGridLayout[1]);
                         for(;;) {
                            UInt32 unX = GetSimulator().GetRNG()->Uniform(cXRange);
                            UInt32 unY = GetSimulator().GetRNG()->Uniform(cYRange);
-                           if(cXRange.WithinMinBoundIncludedMaxBoundExcluded(unX) &&
-                              cYRange.WithinMinBoundIncludedMaxBoundExcluded(unY) &&
-                              m_vecCells.at(unX + m_arrGridLayout[0] * unY) == false) {
+                           if(m_vecCells.at(unX + m_arrGridLayout[0] * unY) == false) {
                               /* shade the unshaded tile */
                               m_vecCells[unX + m_arrGridLayout[0] * unY] = true;
                               break;
@@ -569,7 +544,28 @@ namespace argos {
    /****************************************/
    /****************************************/
 
-   REGISTER_LOOP_FUNCTIONS(CDTAAbstractLoopFunctions, "dta_abstract_loop_functions");
+   bool CDTALoopFunctions::IsOnGrid(const CVector2& c_position) {
+      const CVector3& cArenaSize = GetSpace().GetArenaSize();
+      CRange<Real> cXRange(WALL_THICKNESS, cArenaSize.GetX() - WALL_THICKNESS);
+      CRange<Real> cYRange(WALL_THICKNESS, cArenaSize.GetY() - WALL_THICKNESS);
+      return (cXRange.WithinMinBoundIncludedMaxBoundIncluded(c_position.GetX()) &&
+              cYRange.WithinMinBoundIncludedMaxBoundIncluded(c_position.GetY()));
+   }
+
+   /****************************************/
+   /****************************************/
+
+   std::pair<UInt32, UInt32> CDTALoopFunctions::GetGridCoordinatesFor(const CVector2& c_position) {
+      const CVector3& cArenaSize = GetSpace().GetArenaSize();
+      UInt32 unX = static_cast<UInt32>((c_position.GetX() - WALL_THICKNESS) * m_arrGridLayout.at(0) / (cArenaSize.GetX() - 2 * WALL_THICKNESS));
+      UInt32 unY = static_cast<UInt32>((c_position.GetY() - WALL_THICKNESS) * m_arrGridLayout.at(1) / (cArenaSize.GetY() - 2 * WALL_THICKNESS));
+      return std::pair<UInt32, UInt32>(unX, unY);
+   }
+
+   /****************************************/
+   /****************************************/
+
+   REGISTER_LOOP_FUNCTIONS(CDTALoopFunctions, "dta_loop_functions");
 
    /****************************************/
    /****************************************/
