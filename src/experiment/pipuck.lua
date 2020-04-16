@@ -118,18 +118,20 @@ function step()
    end
    --[[ estimate the tile density ]]--
    local total_samples = #accumulator.samples
-   local total_weighted_accumulator = (accumulator.sum * #accumulator.samples)
+   local total_sum = accumulator.sum
+   local total_degree = 1
    for other_robot, other_robot_data in pairs(database) do
       if other_robot_data.ttl > 0 then
          total_samples = total_samples + other_robot_data.samples
-         total_weighted_accumulator = total_weighted_accumulator +
-            (other_robot_data.sum * other_robot_data.samples)
+         total_sum = total_sum + other_robot_data.sum
+         total_degree = total_degree + 1
       end
    end
-   local estimate = 0
-   if total_samples > 0 then
-      print(string.format("%d/%d", total_weighted_accumulator, total_samples))
-      estimate = total_weighted_accumulator / total_samples
+   --[[ only try to estimate the density when the average number of
+        samples for the robots in the database is above 25 ]]--
+   local average_samples = total_samples / total_degree
+   if average_samples > 25 then
+      local estimate = total_sum / total_samples
       --[[ determine whether or not we should switch to foraging ]]--
       if constants.target_density > estimate then
          local confidence = math.min(total_samples * constants.confidence_coefficient, 1.0)
@@ -138,12 +140,20 @@ function step()
             robot.debug.set_task("foraging")
          end
       end
+      estimate = string.format("%.3f", estimate):gsub(",",".")
+      robot.debug.set_estimate(estimate)
+      print(estimate)
+   else
+      robot.debug.set_estimate("0")
    end
-   --[[ write the current estimate and degree to the loop functions (for data collection) ]]--
-   local estimate = string.format("%.3f", estimate)
-   estimate = estimate:gsub(",", ".")
-   --print(estimate)
-   robot.debug.set_estimate(estimate)
+end
+
+function database_to_str()
+   local str = ""
+   for other_robot, other_robot_data in pairs(database) do
+      str = str .. "\n  " .. other_robot .. " (" .. other_robot_data.ttl .. "): " .. other_robot_data.sum .. "/" .. other_robot_data.samples
+   end
+   return str
 end
 
 function reset() end
