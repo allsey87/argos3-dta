@@ -7,7 +7,7 @@
 #include <argos3/plugins/robots/generic/simulator/wifi_default_actuator.h>
 #include <argos3/plugins/robots/pi-puck/simulator/pipuck_entity.h>
 
-#define CSV_HEADER "\"foraging robots\"\t\"building robots\"\t\"construction events\"\t\"density ground truth\"\t\"density estimate\"\t\"average deviation\"\t\"average degree\""
+#define CSV_HEADER "\"foraging robots\"\t\"building robots\"\t\"construction events\"\t\"density ground truth\"\t\"density estimate\"\t\"average deviation\""
 
 #define WALL_THICKNESS 0.025
 #define MAX_ATTEMPTS 1000
@@ -328,7 +328,7 @@ namespace argos {
    /****************************************/
 
    void CDTALoopFunctions::PostStep() {
-      /* total number of robots */
+      /* get the total number of robots */
       UInt32 unRobotsCount = m_mapRobots.size();
       /* count the robots that are foraging */
       UInt32 unForagingRobotsCount =
@@ -340,39 +340,25 @@ namespace argos {
       );
       /* calculate the robots that are building */
       UInt32 unBuildingRobotsCount = unRobotsCount - unForagingRobotsCount;
-      UInt32 unExploringRobotsCount = 0;
-      /* calculate the number of shaded cells */
+      /* count the number of shaded cells */
       UInt32 unShadedCells =
          std::count(std::begin(m_vecCells), std::end(m_vecCells), true);
       /* get the current estimate value from each building robot */
       std::vector<Real> vecRobotEstimates;
-      std::vector<Real> vecRobotDegrees;
-      if(unBuildingRobotsCount > 0) {
-		   for(std::pair<const std::string, SPiPuck>& c_pair : m_mapRobots) {
-			   SPiPuck& sPiPuck = c_pair.second;
-			   /* only consider robots currently performing the construction task */
-			   if(sPiPuck.Entity != nullptr) {
-               const std::string& strSetTaskBuffer =
-                  sPiPuck.Entity->GetDebugEntity().GetBuffer("set_task");
-               if(strSetTaskBuffer.find("exploring") != std::string::npos) {
-                  /* read estimate from each robot */
-                  const std::string& strEstimateBuffer =
-                     sPiPuck.Entity->GetDebugEntity().GetBuffer("set_estimate");
-                  Real fEstimate = 0.0;
-                  std::istringstream(strEstimateBuffer) >> fEstimate;
-                  vecRobotEstimates.push_back(fEstimate);
-                  /* read degree from each robot */
-                  const std::string& strDegreeBuffer =
-                     sPiPuck.Entity->GetDebugEntity().GetBuffer("set_degree");
-                  Real fDegree = 0.0;
-                  std::istringstream(strDegreeBuffer) >> fDegree;
-                  vecRobotDegrees.push_back(fDegree);
-                  /* increment the count of the exploring robots */
-                  unExploringRobotsCount++;
-				   }
-			   }
-		   }
-	   }
+      for(std::pair<const std::string, SPiPuck>& c_pair : m_mapRobots) {
+         SPiPuck& sPiPuck = c_pair.second;
+         /* only consider robots currently performing the construction task */
+         if(sPiPuck.Entity != nullptr) {
+            const std::string& strEstimateBuffer =
+               sPiPuck.Entity->GetDebugEntity().GetBuffer("set_estimate");
+            if(!strEstimateBuffer.empty()) {
+               Real fEstimate = 0.0;
+               std::istringstream cStream(strEstimateBuffer);
+               cStream >> fEstimate;
+               vecRobotEstimates.push_back(fEstimate);
+            }
+         }
+      }
       /* handle cell unshading */
       /* get the number of block attachments for this step */
       UInt32& unConstructionEvents =
@@ -474,8 +460,8 @@ namespace argos {
                      Real fMeanX = WALL_THICKNESS + cArenaSize.GetX() / 4.0;
                      Real fMeanY = WALL_THICKNESS + cArenaSize.GetY() / 4.0;
                      for(UInt32 un_attempt = 0; un_attempt < MAX_ATTEMPTS; un_attempt++) {
-                        CVector2 cRandomPosition(GetSimulator().GetRNG()->Gaussian(fMeanX / 4.0, fMeanX),
-                                                 GetSimulator().GetRNG()->Gaussian(fMeanY / 4.0, fMeanY));
+                        CVector2 cRandomPosition(GetSimulator().GetRNG()->Gaussian(fMeanX / 2.0, fMeanX),
+                                                 GetSimulator().GetRNG()->Gaussian(fMeanY / 2.0, fMeanY));
                         if(IsOnGrid(cRandomPosition)) {
                            const std::pair<UInt32, UInt32>& cRandomCoordinates =
                               GetGridCoordinatesFor(cRandomPosition);
@@ -509,7 +495,7 @@ namespace argos {
          }
       }
       /* print the results to the output */
-      if(unExploringRobotsCount != 0) {
+      if(vecRobotEstimates.size() != 0) {
          /* calculate the average estimate */
          Real fAverageEstimate = 0.0;
          for(const Real& fValue : vecRobotEstimates) {
@@ -522,12 +508,6 @@ namespace argos {
             fAverageDeviation += Abs(fAverageEstimate - fValue);
          }
          fAverageDeviation /= static_cast<Real>(vecRobotEstimates.size());
-         /* calculate the average degree */
-		   Real fAverageDegree = 0.0;
-         for(const Real& fValue : vecRobotDegrees) {
-            fAverageDegree += fValue;
-         }
-         fAverageDegree /= static_cast<Real>(vecRobotDegrees.size());
          /* calculate the ground truth */
          Real fDensityGroundTruth =
             unShadedCells / static_cast<Real>(m_arrGridLayout[0] * m_arrGridLayout[1]);
@@ -536,10 +516,10 @@ namespace argos {
 			   *m_pcOutput << unForagingRobotsCount << '\t'
                         << unBuildingRobotsCount << '\t'
                         << unConstructionEvents << '\t'
+                        << std::setprecision(3) << std::fixed
                         << fDensityGroundTruth << '\t'
                         << fAverageEstimate << '\t'
-                        << fAverageDeviation << '\t'
-                        << fAverageDegree << std::endl;
+                        << fAverageDeviation << std::endl;
 		   }
          else {
            THROW_ARGOSEXCEPTION("Output stream is not ready");

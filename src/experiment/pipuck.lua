@@ -1,16 +1,18 @@
 luabt = require('luabt')
 
 function init()
+   --[[ check ARGoS version ]]
+   if type(robot.random.bernoulli()) ~= "boolean" then error("Please upgrade and reinstall ARGoS") end
    --[[ constants ]]--
    constants = {
-      target_density = 0.3,
-      confidence_coefficient = 0.001,
+      target_density = 0.2,
+      confidence_coefficient = 0.05,
       ttl = 3,
    }
    --[[ accumulator ]]--
    accumulator = {
       current_index = 1,
-      max_length = 250,
+      length = 250,
       samples = {},
       sum = 0,
    }
@@ -46,7 +48,7 @@ function init()
             end,
          }},
          function()
-            robot.differential_drive.set_target_velocity(0.05, -0.05)
+            robot.differential_drive.set_target_velocity(0.025, -0.025)
             return true
          end,
       }
@@ -69,7 +71,7 @@ function step()
          accumulator.sum = accumulator.sum + value
       end
       -- update index
-      if accumulator.current_index < accumulator.max_length then
+      if accumulator.current_index < accumulator.length then
          accumulator.current_index = accumulator.current_index + 1
       else
          accumulator.current_index = 1
@@ -119,41 +121,24 @@ function step()
    --[[ estimate the tile density ]]--
    local total_samples = #accumulator.samples
    local total_sum = accumulator.sum
-   local total_degree = 1
    for other_robot, other_robot_data in pairs(database) do
       if other_robot_data.ttl > 0 then
          total_samples = total_samples + other_robot_data.samples
          total_sum = total_sum + other_robot_data.sum
-         total_degree = total_degree + 1
       end
    end
-   --[[ only try to estimate the density when the average number of
-        samples for the robots in the database is above 25 ]]--
-   local average_samples = total_samples / total_degree
-   if average_samples > 25 then
+   if total_samples > 5 then
       local estimate = total_sum / total_samples
       --[[ determine whether or not we should switch to foraging ]]--
       if constants.target_density > estimate then
-         local confidence = math.min(total_samples * constants.confidence_coefficient, 1.0)
-         local probablity = confidence * (constants.target_density - estimate)
+         local probablity = math.min(1.0, (constants.target_density - estimate))
          if robot.random.bernoulli(probablity) then
             robot.debug.set_task("foraging")
          end
       end
       estimate = string.format("%.3f", estimate):gsub(",",".")
       robot.debug.set_estimate(estimate)
-      print(estimate)
-   else
-      robot.debug.set_estimate("0")
    end
-end
-
-function database_to_str()
-   local str = ""
-   for other_robot, other_robot_data in pairs(database) do
-      str = str .. "\n  " .. other_robot .. " (" .. other_robot_data.ttl .. "): " .. other_robot_data.sum .. "/" .. other_robot_data.samples
-   end
-   return str
 end
 
 function reset() end

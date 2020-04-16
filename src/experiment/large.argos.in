@@ -95,10 +95,10 @@
                   label="dta_loop_functions"
                   output="data.tsv">
     <parameters grid_layout="100,100"
-                shading_distribution="uniform"
-                mean_foraging_duration_initial="50"
-                mean_foraging_duration_gradient="0.05"
-                construction_limit="320"/>
+                shading_distribution="biased"
+                mean_foraging_duration_initial="10"
+                mean_foraging_duration_gradient="0"
+                construction_limit="80"/>
     <robots />
   </loop_functions>
 
