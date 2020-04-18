@@ -21,17 +21,14 @@ namespace argos {
    public:
 
       struct SPiPuck {
-         SPiPuck(const std::string& str_controller,
-                 const std::set<std::string>& set_can_send_to) :
+         SPiPuck(const std::string& str_controller) :
             Entity(nullptr),
             StepsUntilReturnToConstructionTask(0),
-            Controller(str_controller),
-            CanSendTo(set_can_send_to) {}
+            Controller(str_controller) {}
          /* members */
          CPiPuckEntity* Entity;
          UInt32 StepsUntilReturnToConstructionTask;
          std::string Controller;
-         std::set<std::string> CanSendTo;
          UInt32 PreviousX;
          UInt32 PreviousY;
       };
@@ -52,9 +49,15 @@ namespace argos {
 
       virtual void PostStep();
 
+   private:
+
       bool IsOnGrid(const CVector2& c_position);
 
       std::pair<UInt32, UInt32> GetGridCoordinatesFor(const CVector2& c_position);
+
+      void ShadeCellUniform();
+
+      void ShadeCellBiased();
 
    private:
       /* loop function configuration */
@@ -65,7 +68,7 @@ namespace argos {
       enum class EShadingDistribution {
          UNIFORM, BIASED
       } m_eShadingDistribution;
-      
+      UInt32 m_unShadingBias = 5u;
       /* loop function output */
       std::string m_strOutputFilename;
       std::ostream* m_pcOutput;

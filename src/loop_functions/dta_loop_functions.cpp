@@ -7,66 +7,14 @@
 #include <argos3/plugins/robots/generic/simulator/wifi_default_actuator.h>
 #include <argos3/plugins/robots/pi-puck/simulator/pipuck_entity.h>
 
+#include <numeric>
+
 #define CSV_HEADER "\"foraging robots\"\t\"building robots\"\t\"construction events\"\t\"density ground truth\"\t\"density estimate\"\t\"average deviation\""
 
 #define WALL_THICKNESS 0.025
 #define MAX_ATTEMPTS 1000
 
 namespace argos {
-
-   class CDTAAbstractWifiActuator : public CWifiDefaultActuator {
-   public:
-      class CTxOperation : public CPositionalIndex<CRadioEntity>::COperation {
-      public:
-         CTxOperation(const CRadioEntity& c_tx_radio,
-                      const std::list<CByteArray>& lst_messages,
-                      const std::set<std::string>& set_can_send_to) :
-            m_cTxRadio(c_tx_radio),
-            m_lstMessages(lst_messages),
-            m_setCanSendTo(set_can_send_to) {}
-
-         virtual bool operator()(CRadioEntity& c_rx_radio) {
-            if(m_setCanSendTo.count(c_rx_radio.GetRootEntity().GetId()) != 0) {
-               const CVector3& cTxRadioPosition = m_cTxRadio.GetPosition();
-               for(const CByteArray& c_data : m_lstMessages) {
-                  c_rx_radio.ReceiveData(cTxRadioPosition, c_data);
-               }
-            }
-            return true;
-         }
-
-      private:
-         const CRadioEntity& m_cTxRadio;
-         const std::list<CByteArray>& m_lstMessages;
-         const std::set<std::string>& m_setCanSendTo;
-      };
-
-      /****************************************/
-      /****************************************/
-
-      virtual void Update() override {
-         if(!m_lstMessages.empty()) {
-            CTxOperation cTxOperation(*m_pcRadioEntity,
-                                      m_lstMessages,
-                                      m_setCanSendTo);
-            m_pcRadioEntity->GetMedium().GetIndex().ForAllEntities(cTxOperation);
-            m_lstMessages.clear();
-         }
-      }
-
-      /****************************************/
-      /****************************************/
-
-      void SetCanSendTo(const std::set<std::string>& set_can_send_to) {
-         m_setCanSendTo = set_can_send_to;
-      }
-
-      /****************************************/
-      /****************************************/
-
-   private:
-      std::set<std::string> m_setCanSendTo;
-   };
 
    /****************************************/
    /****************************************/
@@ -132,9 +80,11 @@ namespace argos {
                &(m_pcRadioEntity->GetMedium().GetIndex());
             if(m_bLimitRange) {
                /* Calculate the range of the transmitting radio */
-               CVector3 cTxRange(m_fRange, m_fRange, m_fRange);
-               /* Transmit the data to receiving radios in the space */
-               pcRadioIndex->ForEntitiesInBoxRange(m_pcRadioEntity->GetPosition(), cTxRange, cTxOperation);
+               if(m_fRange > 0.0) {
+                  CVector3 cTxRange(m_fRange, m_fRange, m_fRange);
+                  /* Transmit the data to receiving radios in the space */
+                  pcRadioIndex->ForEntitiesInBoxRange(m_pcRadioEntity->GetPosition(), cTxRange, cTxOperation);
+               }
             }
             else {
                pcRadioIndex->ForAllEntities(cTxOperation);
@@ -148,22 +98,13 @@ namespace argos {
       /****************************************/
 
    private:
-      bool m_bLimitRange = false;
+      bool m_bLimitRange = true;
       Real m_fRange = 0.0;
 
    };
 
    /****************************************/
    /****************************************/
-
-   REGISTER_ACTUATOR(CDTAAbstractWifiActuator,
-                     "wifi", "dta_abstract",
-                     "Michael Allwright [allsey87@gmail.com]",
-                     "1.0",
-                     "An abstract wifi actuator for the DTA experiments.",
-                     "This actuator sends messages over wifi.",
-                     "Usable"
-   );
    
    REGISTER_ACTUATOR(CDTAProximityWifiActuator,
                      "wifi", "dta_proximity",
@@ -238,27 +179,15 @@ namespace argos {
       TConfigurationNodeIterator itPiPuck("pipuck");
       std::string strId;
       std::string strController;
-      std::string strCanSendTo;
-      std::vector<std::string> vecCanSendTo;
-      std::set<std::string> setCanSendTo;
       /* parse the pipuck robots */
       for(itPiPuck = itPiPuck.begin(&GetNode(t_tree,"robots"));
          itPiPuck != itPiPuck.end();
          ++itPiPuck) {
          strId.clear();
          strController.clear();
-         strCanSendTo.clear();
-         vecCanSendTo.clear();
-         setCanSendTo.clear();
          GetNodeAttribute(*itPiPuck, "id", strId);
          GetNodeAttribute(*itPiPuck, "controller", strController);
-         GetNodeAttributeOrDefault(*itPiPuck, "can_send_to", strCanSendTo, strCanSendTo);
-         Tokenize(strCanSendTo, vecCanSendTo, ",");
-         setCanSendTo.insert(std::begin(vecCanSendTo),
-                             std::end(vecCanSendTo));
-         m_mapRobots.emplace(std::piecewise_construct,
-                             std::forward_as_tuple(strId),
-                             std::forward_as_tuple(strController, setCanSendTo));
+         m_mapRobots.emplace(strId, strController);
       }
    }
 
@@ -438,16 +367,6 @@ namespace argos {
                      /* initialize the previous cell coordinates of the new robot */
                      sPiPuck.PreviousX = static_cast<UInt32>(fX * m_arrGridLayout.at(0) / cArenaSize.GetX());
                      sPiPuck.PreviousY = static_cast<UInt32>(fY * m_arrGridLayout.at(1) / cArenaSize.GetY());
-                     CCI_Controller& cController =
-                        sPiPuck.Entity->GetControllableEntity().GetController();
-                     /* try to set the CanSendTo attribute of the CDTAAbstractWifiActuator. This will fail
-                        silently if we are using a different actuator, e.g., CDTAProximityWifiActuator */
-                     try {
-                        CDTAAbstractWifiActuator* pcWifiActuator =
-                           cController.GetActuator<CDTAAbstractWifiActuator>("wifi");
-                        pcWifiActuator->SetCanSendTo(sPiPuck.CanSendTo);
-                     }
-                     catch(CARGoSException& ex) {}
                      // START HACK
                      GetSimulator().GetMedium<CRadioMedium>("wifi").Update();
                      // END HACK
@@ -457,33 +376,10 @@ namespace argos {
                /* do not shade cells when the robots are added just after initialization */
                if(GetSpace().GetSimulationClock() > 5) {
                   if(m_eShadingDistribution == EShadingDistribution::BIASED) {
-                     Real fMeanX = WALL_THICKNESS + cArenaSize.GetX() / 4.0;
-                     Real fMeanY = WALL_THICKNESS + cArenaSize.GetY() / 4.0;
-                     for(UInt32 un_attempt = 0; un_attempt < MAX_ATTEMPTS; un_attempt++) {
-                        CVector2 cRandomPosition(GetSimulator().GetRNG()->Gaussian(fMeanX / 2.0, fMeanX),
-                                                 GetSimulator().GetRNG()->Gaussian(fMeanY / 2.0, fMeanY));
-                        if(IsOnGrid(cRandomPosition)) {
-                           const std::pair<UInt32, UInt32>& cRandomCoordinates =
-                              GetGridCoordinatesFor(cRandomPosition);
-                           if(!m_vecCells.at(cRandomCoordinates.first + m_arrGridLayout[0] * cRandomCoordinates.second)) {
-                              m_vecCells.at(cRandomCoordinates.first + m_arrGridLayout[0] * cRandomCoordinates.second) = true;
-                              break;
-                           }
-                        }
-                     }
+                     ShadeCellBiased();
                   }
                   else if(m_eShadingDistribution == EShadingDistribution::UNIFORM) {
-                     CRange<UInt32> cXRange(0, m_arrGridLayout[0]);
-                     CRange<UInt32> cYRange(0, m_arrGridLayout[1]);
-                     for(UInt32 un_attempt = 0; un_attempt < MAX_ATTEMPTS; un_attempt++) {
-                        UInt32 unX = GetSimulator().GetRNG()->Uniform(cXRange);
-                        UInt32 unY = GetSimulator().GetRNG()->Uniform(cYRange);
-                        if(m_vecCells.at(unX + m_arrGridLayout[0] * unY) == false) {
-                           /* shade the unshaded tile */
-                           m_vecCells[unX + m_arrGridLayout[0] * unY] = true;
-                           break;
-                        }
-                     }
+                     ShadeCellUniform();
                   }
                }
                GetSpace().GetFloorEntity().SetChanged();
@@ -546,6 +442,94 @@ namespace argos {
       UInt32 unX = static_cast<UInt32>((c_position.GetX() - WALL_THICKNESS) * m_arrGridLayout.at(0) / (cArenaSize.GetX() - 2 * WALL_THICKNESS));
       UInt32 unY = static_cast<UInt32>((c_position.GetY() - WALL_THICKNESS) * m_arrGridLayout.at(1) / (cArenaSize.GetY() - 2 * WALL_THICKNESS));
       return std::pair<UInt32, UInt32>(unX, unY);
+   }
+
+   /****************************************/
+   /****************************************/
+
+   void CDTALoopFunctions::ShadeCellUniform() {
+      CRange<UInt32> cXRange(0, m_arrGridLayout[0]);
+      CRange<UInt32> cYRange(0, m_arrGridLayout[1]);
+      for(UInt32 un_attempt = 0; un_attempt < MAX_ATTEMPTS; un_attempt++) {
+         UInt32 unX = GetSimulator().GetRNG()->Uniform(cXRange);
+         UInt32 unY = GetSimulator().GetRNG()->Uniform(cYRange);
+         if(m_vecCells.at(unX + m_arrGridLayout[0] * unY) == false) {
+            /* shade the unshaded tile */
+            m_vecCells[unX + m_arrGridLayout[0] * unY] = true;
+            break;
+         }
+      }
+   }
+
+   /****************************************/
+   /****************************************/
+
+   void CDTALoopFunctions::ShadeCellBiased() {
+      std::vector<UInt32> vecCellShadeProbability(m_vecCells.size(), 1);
+      /* for each cell already shaded, increase the probability of shading neighbouring cells */
+      for(UInt32 un_idx = 0; un_idx < m_vecCells.size(); un_idx++) {
+         if(m_vecCells[un_idx]) {
+            UInt32 unRow = un_idx / m_arrGridLayout[0];
+            UInt32 unColumn = un_idx - (unRow * m_arrGridLayout[0]);
+            /* check if each neighbour is at a valid index */
+            if(unColumn > 0) {
+               if(unRow > 0) {
+                  /* (X-1, Y-1) */
+                  vecCellShadeProbability[m_arrGridLayout[0] * (unRow - 1) + (unColumn - 1)] *= m_unShadingBias; 
+               }
+               /* (X-1, Y) */
+               vecCellShadeProbability[m_arrGridLayout[0] * (unRow) + (unColumn - 1)] *= m_unShadingBias;
+               if(unRow + 1 < m_arrGridLayout[1]) {
+                  /* (X-1, Y+1) */
+                  vecCellShadeProbability[m_arrGridLayout[0] * (unRow + 1) + (unColumn - 1)] *= m_unShadingBias; 
+               }
+            }
+            if(unRow > 0) {
+               /* (X, Y-1) */
+               vecCellShadeProbability[m_arrGridLayout[0] * (unRow - 1) + (unColumn)] *= m_unShadingBias; 
+            }
+            if(unRow + 1 < m_arrGridLayout[1]) {
+               /* (X, Y+1) */
+               vecCellShadeProbability[m_arrGridLayout[0] * (unRow + 1) + (unColumn)] *= m_unShadingBias; 
+            }
+            if(unColumn + 1 < m_arrGridLayout[0]) {
+               if(unRow > 0) {
+                  /* (X+1, Y-1) */
+                  vecCellShadeProbability[m_arrGridLayout[0] * (unRow - 1) + (unColumn + 1)] *= m_unShadingBias;
+               }
+               /* (X+1, Y) */
+               vecCellShadeProbability[m_arrGridLayout[0] * (unRow) + (unColumn + 1)] *= m_unShadingBias;
+               if(unRow + 1 < m_arrGridLayout[1]) {
+                  /* (X+1, Y+1) */
+                  vecCellShadeProbability[m_arrGridLayout[0] * (unRow + 1) + (unColumn + 1)] *= m_unShadingBias;
+               }
+            }
+         }
+      }
+      /* force the probability of shading the already shaded cells to zero */
+      for(UInt32 un_idx = 0; un_idx < m_vecCells.size(); un_idx++) {
+         if(m_vecCells[un_idx]) {
+            vecCellShadeProbability[un_idx] = 0;
+         }
+      }
+      UInt32 unShadeProbabilityTotal = 
+         std::accumulate(std::begin(vecCellShadeProbability),
+                           std::end(vecCellShadeProbability),
+                           0u);
+      if(unShadeProbabilityTotal > 0) {
+         UInt32 unSelectedProbabilityIndex = 
+            GetSimulator().GetRNG()->Uniform(CRange<UInt32>(0, unShadeProbabilityTotal));
+         /* shade the selected index */
+         for(UInt32 un_idx = 0; un_idx < m_vecCells.size(); un_idx++) {
+            if(unSelectedProbabilityIndex >= vecCellShadeProbability[un_idx]) {
+               unSelectedProbabilityIndex -= vecCellShadeProbability[un_idx];
+            }
+            else {
+               m_vecCells[un_idx] = true;
+               break;
+            }
+         }
+      }
    }
 
    /****************************************/
