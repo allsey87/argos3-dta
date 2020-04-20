@@ -122,6 +122,8 @@ namespace argos {
       m_arrGridLayout({0, 0}),
       m_fMeanForagingDurationInitial(0.0),
       m_fMeanForagingDurationGradient(0.0),
+      m_fInitialShadingRatio(0.0),
+      m_bEnableForaging(true),
       m_unConstructionLimit(0),
       m_eShadingDistribution(EShadingDistribution::UNIFORM),
       m_pcOutput(nullptr) {
@@ -153,9 +155,22 @@ namespace argos {
       *m_pcOutput << CSV_HEADER << std::endl;
       /* parse the parameters */
       TConfigurationNode& tParameters = GetNode(t_tree, "parameters");
-      /* parse the foraging delay coefficient and the construction limit */
-      GetNodeAttribute(tParameters, "mean_foraging_duration_initial", m_fMeanForagingDurationInitial);
-      GetNodeAttribute(tParameters, "mean_foraging_duration_gradient", m_fMeanForagingDurationGradient);
+      /* parse the parameters */
+      GetNodeAttribute(tParameters,
+                       "mean_foraging_duration_initial",
+                       m_fMeanForagingDurationInitial);
+      GetNodeAttributeOrDefault(tParameters,
+                                "mean_foraging_duration_gradient",
+                                m_fMeanForagingDurationGradient,
+                                m_fMeanForagingDurationGradient);    
+      GetNodeAttributeOrDefault(tParameters,
+                                "initial_shading_ratio",
+                                m_fInitialShadingRatio,
+                                m_fInitialShadingRatio);
+      GetNodeAttributeOrDefault(tParameters,
+                                "enable_foraging",
+                                m_bEnableForaging,
+                                m_bEnableForaging);
       GetNodeAttribute(tParameters, "construction_limit", m_unConstructionLimit);
       std::string strShadingDistribution;
       GetNodeAttribute(tParameters, "shading_distribution", strShadingDistribution);
@@ -172,9 +187,6 @@ namespace argos {
       std::string strGridLayout;
       GetNodeAttribute(tParameters, "grid_layout", strGridLayout);
       ParseValues<UInt32>(strGridLayout, 2, m_arrGridLayout.data(), ',');
-      /* initialize vector of cells */
-      m_vecCells.assign(m_arrGridLayout[0] * m_arrGridLayout[1], false);
-      GetSpace().GetFloorEntity().SetChanged();
       /* create a map of the pi-puck robots */
       TConfigurationNodeIterator itPiPuck("pipuck");
       std::string strId;
@@ -189,6 +201,18 @@ namespace argos {
          GetNodeAttribute(*itPiPuck, "controller", strController);
          m_mapRobots.emplace(strId, strController);
       }
+      /* initialize vector of cells */
+      m_vecCells.assign(m_arrGridLayout[0] * m_arrGridLayout[1], false);
+      UInt32 un_count = m_fInitialShadingRatio * m_arrGridLayout[0] * m_arrGridLayout[1];
+      for(; un_count > 0; un_count--) {
+         if(m_eShadingDistribution == EShadingDistribution::BIASED) {
+            ShadeCellBiased();
+         }
+         else {
+            ShadeCellUniform();
+         }
+      }
+      GetSpace().GetFloorEntity().SetChanged();
    }
 
    /****************************************/
@@ -202,9 +226,6 @@ namespace argos {
          s_pipuck.Entity = nullptr;
          s_pipuck.StepsUntilReturnToConstructionTask = 0;
       }
-      /* clear all cells and mark the floor as changed */
-      m_vecCells.assign(m_vecCells.size(), false);
-      GetSpace().GetFloorEntity().SetChanged();
       /* zero out the construction events */
       m_vecConstructionEvents.assign(m_vecConstructionEvents.size(), 0);
       /* reconfigure the output file */
@@ -226,6 +247,18 @@ namespace argos {
          THROW_ARGOSEXCEPTION("Output stream is not ready");
       }
       *m_pcOutput << CSV_HEADER << std::endl;
+      /* initialize cells */
+      m_vecCells.assign(m_arrGridLayout[0] * m_arrGridLayout[1], false);
+      UInt32 un_count = m_fInitialShadingRatio * m_arrGridLayout[0] * m_arrGridLayout[1];
+      for(; un_count > 0; un_count--) {
+         if(m_eShadingDistribution == EShadingDistribution::BIASED) {
+            ShadeCellBiased();
+         }
+         else {
+            ShadeCellUniform();
+         }
+      }
+      GetSpace().GetFloorEntity().SetChanged();
    }
 
    /****************************************/
@@ -321,22 +354,24 @@ namespace argos {
 		   }
 	   }
       /* find the robots that want to change to the foraging task */
-      for(std::pair<const std::string, SPiPuck>& c_pair : m_mapRobots) {
-         SPiPuck& sPiPuck = c_pair.second;
-         /* only consider robots currently performing the construction task */
-         if(sPiPuck.Entity != nullptr) {
-            const std::string& strSetTaskBuffer =
-               sPiPuck.Entity->GetDebugEntity().GetBuffer("set_task");
-            if(strSetTaskBuffer.find("foraging") != std::string::npos) {
-               RemoveEntity(*sPiPuck.Entity);
-               sPiPuck.Entity = nullptr;
-               Real fMeanForagingDuration = m_fMeanForagingDurationInitial +
-                  m_fMeanForagingDurationGradient * GetSpace().GetSimulationClock();
-               sPiPuck.StepsUntilReturnToConstructionTask =
-                  GetSimulator().GetRNG()->Poisson(fMeanForagingDuration);
-               // START HACK
-               GetSimulator().GetMedium<CRadioMedium>("wifi").Update();
-               // END HACK
+      if(m_bEnableForaging) {
+         for(std::pair<const std::string, SPiPuck>& c_pair : m_mapRobots) {
+            SPiPuck& sPiPuck = c_pair.second;
+            /* only consider robots currently performing the construction task */
+            if(sPiPuck.Entity != nullptr) {
+               const std::string& strSetTaskBuffer =
+                  sPiPuck.Entity->GetDebugEntity().GetBuffer("set_task");
+               if(strSetTaskBuffer.find("foraging") != std::string::npos) {
+                  RemoveEntity(*sPiPuck.Entity);
+                  sPiPuck.Entity = nullptr;
+                  Real fMeanForagingDuration = m_fMeanForagingDurationInitial +
+                     m_fMeanForagingDurationGradient * GetSpace().GetSimulationClock();
+                  sPiPuck.StepsUntilReturnToConstructionTask =
+                     GetSimulator().GetRNG()->Poisson(fMeanForagingDuration);
+                  // START HACK
+                  GetSimulator().GetMedium<CRadioMedium>("wifi").Update();
+                  // END HACK
+               }
             }
          }
       }

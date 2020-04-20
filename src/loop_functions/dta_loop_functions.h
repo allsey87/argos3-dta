@@ -64,6 +64,8 @@ namespace argos {
       std::array<UInt32, 2> m_arrGridLayout;
       Real m_fMeanForagingDurationInitial;
       Real m_fMeanForagingDurationGradient;
+      Real m_fInitialShadingRatio;
+      bool m_bEnableForaging;
       UInt32 m_unConstructionLimit;
       enum class EShadingDistribution {
          UNIFORM, BIASED
