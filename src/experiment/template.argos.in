@@ -54,7 +54,7 @@
 
   <!-- Media -->
   <media>
-    <radio id="wifi" index="grid" grid_size="20,20,1" />
+    <radio id="wifi" index="grid" grid_size="5,5,1" />
   </media>
 
   <!-- Controllers -->
@@ -67,7 +67,7 @@
           <interface id="set_estimate" />
           <interface id="set_degree" />
         </debug>
-        <wifi implementation="dta_abstract"/>
+        <wifi implementation="dta_proximity" range="1"/>
       </actuators>
       <sensors>
         <pipuck_ground implementation="default" show_rays="false" />
@@ -92,14 +92,96 @@
               every second (the limit is imposed on how many blocks have been placed in the last second).
   -->
   <loop_functions library="@CMAKE_BINARY_DIR@/loop_functions/libdta_loop_functions"
-                  label="dta_loop_functions"
-                  output="data.tsv">
+                  label="dta_loop_functions" >
     <parameters grid_layout="50,50"
                 shading_distribution="biased"
+                initial_shading_ratio="0"
+                enable_foraging="true"
                 mean_foraging_duration_initial="10"
                 mean_foraging_duration_gradient="0"
-                construction_limit="20"/>
-    <robots />
+                construction_limit="0"/>
+    <robots>
+      <pipuck id="pipuck0" controller="pipuck" />
+      <pipuck id="pipuck1" controller="pipuck" />
+      <pipuck id="pipuck2" controller="pipuck" />
+      <pipuck id="pipuck3" controller="pipuck" />
+      <pipuck id="pipuck4" controller="pipuck" />
+      <pipuck id="pipuck5" controller="pipuck" />
+      <pipuck id="pipuck6" controller="pipuck" />
+      <pipuck id="pipuck7" controller="pipuck" />
+      <pipuck id="pipuck8" controller="pipuck" />
+      <pipuck id="pipuck9" controller="pipuck" />
+      <pipuck id="pipuck10" controller="pipuck" />
+      <pipuck id="pipuck11" controller="pipuck" />
+      <pipuck id="pipuck12" controller="pipuck" />
+      <pipuck id="pipuck13" controller="pipuck" />
+      <pipuck id="pipuck14" controller="pipuck" />
+      <pipuck id="pipuck15" controller="pipuck" />
+      <pipuck id="pipuck16" controller="pipuck" />
+      <pipuck id="pipuck17" controller="pipuck" />
+      <pipuck id="pipuck18" controller="pipuck" />
+      <pipuck id="pipuck19" controller="pipuck" />
+      <pipuck id="pipuck20" controller="pipuck" />
+      <pipuck id="pipuck21" controller="pipuck" />
+      <pipuck id="pipuck22" controller="pipuck" />
+      <pipuck id="pipuck23" controller="pipuck" />
+      <pipuck id="pipuck24" controller="pipuck" />
+      <pipuck id="pipuck25" controller="pipuck" />
+      <pipuck id="pipuck26" controller="pipuck" />
+      <pipuck id="pipuck27" controller="pipuck" />
+      <pipuck id="pipuck28" controller="pipuck" />
+      <pipuck id="pipuck29" controller="pipuck" />
+      <pipuck id="pipuck30" controller="pipuck" />
+      <pipuck id="pipuck31" controller="pipuck" />
+      <pipuck id="pipuck32" controller="pipuck" />
+      <pipuck id="pipuck33" controller="pipuck" />
+      <pipuck id="pipuck34" controller="pipuck" />
+      <pipuck id="pipuck35" controller="pipuck" />
+      <pipuck id="pipuck36" controller="pipuck" />
+      <pipuck id="pipuck37" controller="pipuck" />
+      <pipuck id="pipuck38" controller="pipuck" />
+      <pipuck id="pipuck39" controller="pipuck" />
+      <pipuck id="pipuck40" controller="pipuck" />
+      <pipuck id="pipuck41" controller="pipuck" />
+      <pipuck id="pipuck42" controller="pipuck" />
+      <pipuck id="pipuck43" controller="pipuck" />
+      <pipuck id="pipuck44" controller="pipuck" />
+      <pipuck id="pipuck45" controller="pipuck" />
+      <pipuck id="pipuck46" controller="pipuck" />
+      <pipuck id="pipuck47" controller="pipuck" />
+      <pipuck id="pipuck48" controller="pipuck" />
+      <pipuck id="pipuck49" controller="pipuck" />
+      <pipuck id="pipuck50" controller="pipuck" />
+      <pipuck id="pipuck51" controller="pipuck" />
+      <pipuck id="pipuck52" controller="pipuck" />
+      <pipuck id="pipuck53" controller="pipuck" />
+      <pipuck id="pipuck54" controller="pipuck" />
+      <pipuck id="pipuck55" controller="pipuck" />
+      <pipuck id="pipuck56" controller="pipuck" />
+      <pipuck id="pipuck57" controller="pipuck" />
+      <pipuck id="pipuck58" controller="pipuck" />
+      <pipuck id="pipuck59" controller="pipuck" />
+      <pipuck id="pipuck60" controller="pipuck" />
+      <pipuck id="pipuck61" controller="pipuck" />
+      <pipuck id="pipuck62" controller="pipuck" />
+      <pipuck id="pipuck63" controller="pipuck" />
+      <pipuck id="pipuck64" controller="pipuck" />
+      <pipuck id="pipuck65" controller="pipuck" />
+      <pipuck id="pipuck66" controller="pipuck" />
+      <pipuck id="pipuck67" controller="pipuck" />
+      <pipuck id="pipuck68" controller="pipuck" />
+      <pipuck id="pipuck69" controller="pipuck" />
+      <pipuck id="pipuck70" controller="pipuck" />
+      <pipuck id="pipuck71" controller="pipuck" />
+      <pipuck id="pipuck72" controller="pipuck" />
+      <pipuck id="pipuck73" controller="pipuck" />
+      <pipuck id="pipuck74" controller="pipuck" />
+      <pipuck id="pipuck75" controller="pipuck" />
+      <pipuck id="pipuck76" controller="pipuck" />
+      <pipuck id="pipuck77" controller="pipuck" />
+      <pipuck id="pipuck78" controller="pipuck" />
+      <pipuck id="pipuck79" controller="pipuck" />
+    </robots>    
   </loop_functions>
 
 </argos-configuration>

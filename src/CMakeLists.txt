@@ -32,22 +32,18 @@ configure_file(
   ${CMAKE_SOURCE_DIR}/experiment/luabt.lua
   ${CMAKE_BINARY_DIR}/experiment/luabt.lua
   COPYONLY)
-
 configure_file(
   ${CMAKE_SOURCE_DIR}/experiment/pipuck.lua
   ${CMAKE_BINARY_DIR}/experiment/pipuck.lua
   COPYONLY)
 
 #
-# Configure templates
+# Copy/Configure template and python scripts
 #
 configure_file(
-  ${CMAKE_SOURCE_DIR}/experiment/small.argos.in
-  ${CMAKE_BINARY_DIR}/experiment/small.argos)
+  ${CMAKE_SOURCE_DIR}/experiment/template.argos.in
+  ${CMAKE_BINARY_DIR}/experiment/template.argos)
 configure_file(
-  ${CMAKE_SOURCE_DIR}/experiment/medium.argos.in
-  ${CMAKE_BINARY_DIR}/experiment/medium.argos)
-configure_file(
-  ${CMAKE_SOURCE_DIR}/experiment/large.argos.in
-  ${CMAKE_BINARY_DIR}/experiment/large.argos)
+  ${CMAKE_SOURCE_DIR}/experiment/run.py.in
+  ${CMAKE_BINARY_DIR}/experiment/run.py)
 
