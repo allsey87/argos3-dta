@@ -9,7 +9,7 @@
 
 #include <numeric>
 
-#define CSV_HEADER "\"foraging robots\"\t\"building robots\"\t\"construction events\"\t\"density ground truth\"\t\"density estimate\"\t\"average deviation\""
+#define CSV_HEADER "\"clock\",\"foraging robots\",\"building robots\",\"construction events\",\"density ground truth\",\"density estimate\",\"average deviation\""
 
 #define WALL_THICKNESS 0.025
 #define MAX_ATTEMPTS 1000
@@ -444,12 +444,13 @@ namespace argos {
             unShadedCells / static_cast<Real>(m_arrGridLayout[0] * m_arrGridLayout[1]);
 		   /* write output */
 		   if(m_pcOutput->good()) {
-			   *m_pcOutput << unForagingRobotsCount << '\t'
-                        << unBuildingRobotsCount << '\t'
-                        << unConstructionEvents << '\t'
+			   *m_pcOutput << GetSpace().GetSimulationClock() << ","
+                        << unForagingRobotsCount << ','
+                        << unBuildingRobotsCount << ','
+                        << unConstructionEvents << ','
                         << std::setprecision(3) << std::fixed
-                        << fDensityGroundTruth << '\t'
-                        << fAverageEstimate << '\t'
+                        << fDensityGroundTruth << ','
+                        << fAverageEstimate << ','
                         << fAverageDeviation << std::endl;
 		   }
          else {
