@@ -44,6 +44,6 @@ configure_file(
   ${CMAKE_SOURCE_DIR}/experiment/template.argos.in
   ${CMAKE_BINARY_DIR}/experiment/template.argos)
 configure_file(
-  ${CMAKE_SOURCE_DIR}/experiment/run.py.in
-  ${CMAKE_BINARY_DIR}/experiment/run.py)
+  ${CMAKE_SOURCE_DIR}/experiment/generate_data.py
+  ${CMAKE_BINARY_DIR}/experiment/generate_data.py)
 
