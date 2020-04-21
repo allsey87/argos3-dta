@@ -302,9 +302,10 @@ namespace argos {
       );
       /* calculate the robots that are building */
       UInt32 unBuildingRobotsCount = unRobotsCount - unForagingRobotsCount;
-      /* count the number of shaded cells */
-      UInt32 unShadedCells =
-         std::count(std::begin(m_vecCells), std::end(m_vecCells), true);
+      /* calculate the density (ground truth) of the shaded cells */
+      Real fDensityGroundTruth = 
+         std::count(std::begin(m_vecCells), std::end(m_vecCells), true) /
+            static_cast<Real>(m_arrGridLayout[0] * m_arrGridLayout[1]);
       /* get the current estimate value from each building robot */
       std::vector<Real> vecRobotEstimates;
       for(std::pair<const std::string, SPiPuck>& c_pair : m_mapRobots) {
@@ -439,9 +440,6 @@ namespace argos {
             fAverageDeviation += Abs(fAverageEstimate - fValue);
          }
          fAverageDeviation /= static_cast<Real>(vecRobotEstimates.size());
-         /* calculate the ground truth */
-         Real fDensityGroundTruth =
-            unShadedCells / static_cast<Real>(m_arrGridLayout[0] * m_arrGridLayout[1]);
 		   /* write output */
 		   if(m_pcOutput->good()) {
 			   *m_pcOutput << GetSpace().GetSimulationClock() << ","
@@ -500,6 +498,23 @@ namespace argos {
    /****************************************/
    /****************************************/
 
+   void CDTALoopFunctions::UnshadeCellUniform() {
+      CRange<UInt32> cXRange(0, m_arrGridLayout[0]);
+      CRange<UInt32> cYRange(0, m_arrGridLayout[1]);
+      for(UInt32 un_attempt = 0; un_attempt < MAX_ATTEMPTS; un_attempt++) {
+         UInt32 unX = GetSimulator().GetRNG()->Uniform(cXRange);
+         UInt32 unY = GetSimulator().GetRNG()->Uniform(cYRange);
+         if(m_vecCells.at(unX + m_arrGridLayout[0] * unY) == true) {
+            /* unshade the unshaded tile */
+            m_vecCells[unX + m_arrGridLayout[0] * unY] = false;
+            break;
+         }
+      }
+   }
+
+   /****************************************/
+   /****************************************/
+
    void CDTALoopFunctions::ShadeCellBiased() {
       std::vector<UInt32> vecCellShadeProbability(m_vecCells.size(), 1);
       /* for each cell already shaded, increase the probability of shading neighbouring cells */
@@ -550,8 +565,8 @@ namespace argos {
       }
       UInt32 unShadeProbabilityTotal = 
          std::accumulate(std::begin(vecCellShadeProbability),
-                           std::end(vecCellShadeProbability),
-                           0u);
+                         std::end(vecCellShadeProbability),
+                         0u);
       if(unShadeProbabilityTotal > 0) {
          UInt32 unSelectedProbabilityIndex = 
             GetSimulator().GetRNG()->Uniform(CRange<UInt32>(0, unShadeProbabilityTotal));
@@ -570,6 +585,74 @@ namespace argos {
 
    /****************************************/
    /****************************************/
+
+   void CDTALoopFunctions::UnshadeCellBiased() {
+      std::vector<UInt32> vecCellShadeProbability(m_vecCells.size(), 1);
+      /* for each cell already shaded, increase the probability of shading neighbouring cells */
+      for(UInt32 un_idx = 0; un_idx < m_vecCells.size(); un_idx++) {
+         if(!m_vecCells[un_idx]) {
+            UInt32 unRow = un_idx / m_arrGridLayout[0];
+            UInt32 unColumn = un_idx - (unRow * m_arrGridLayout[0]);
+            /* check if each neighbour is at a valid index */
+            if(unColumn > 0) {
+               if(unRow > 0) {
+                  /* (X-1, Y-1) */
+                  vecCellShadeProbability[m_arrGridLayout[0] * (unRow - 1) + (unColumn - 1)] *= m_unShadingBias; 
+               }
+               /* (X-1, Y) */
+               vecCellShadeProbability[m_arrGridLayout[0] * (unRow) + (unColumn - 1)] *= m_unShadingBias;
+               if(unRow + 1 < m_arrGridLayout[1]) {
+                  /* (X-1, Y+1) */
+                  vecCellShadeProbability[m_arrGridLayout[0] * (unRow + 1) + (unColumn - 1)] *= m_unShadingBias; 
+               }
+            }
+            if(unRow > 0) {
+               /* (X, Y-1) */
+               vecCellShadeProbability[m_arrGridLayout[0] * (unRow - 1) + (unColumn)] *= m_unShadingBias; 
+            }
+            if(unRow + 1 < m_arrGridLayout[1]) {
+               /* (X, Y+1) */
+               vecCellShadeProbability[m_arrGridLayout[0] * (unRow + 1) + (unColumn)] *= m_unShadingBias; 
+            }
+            if(unColumn + 1 < m_arrGridLayout[0]) {
+               if(unRow > 0) {
+                  /* (X+1, Y-1) */
+                  vecCellShadeProbability[m_arrGridLayout[0] * (unRow - 1) + (unColumn + 1)] *= m_unShadingBias;
+               }
+               /* (X+1, Y) */
+               vecCellShadeProbability[m_arrGridLayout[0] * (unRow) + (unColumn + 1)] *= m_unShadingBias;
+               if(unRow + 1 < m_arrGridLayout[1]) {
+                  /* (X+1, Y+1) */
+                  vecCellShadeProbability[m_arrGridLayout[0] * (unRow + 1) + (unColumn + 1)] *= m_unShadingBias;
+               }
+            }
+         }
+      }
+      /* force the probability of unshading an already unshaded cell to zero */
+      for(UInt32 un_idx = 0; un_idx < m_vecCells.size(); un_idx++) {
+         if(!m_vecCells[un_idx]) {
+            vecCellShadeProbability[un_idx] = 0;
+         }
+      }
+      UInt32 unShadeProbabilityTotal = 
+         std::accumulate(std::begin(vecCellShadeProbability),
+                         std::end(vecCellShadeProbability),
+                         0u);
+      if(unShadeProbabilityTotal > 0) {
+         UInt32 unSelectedProbabilityIndex = 
+            GetSimulator().GetRNG()->Uniform(CRange<UInt32>(0, unShadeProbabilityTotal));
+         /* shade the selected index */
+         for(UInt32 un_idx = 0; un_idx < m_vecCells.size(); un_idx++) {
+            if(unSelectedProbabilityIndex >= vecCellShadeProbability[un_idx]) {
+               unSelectedProbabilityIndex -= vecCellShadeProbability[un_idx];
+            }
+            else {
+               m_vecCells[un_idx] = false;
+               break;
+            }
+         }
+      }
+   }
 
    REGISTER_LOOP_FUNCTIONS(CDTALoopFunctions, "dta_loop_functions");
 

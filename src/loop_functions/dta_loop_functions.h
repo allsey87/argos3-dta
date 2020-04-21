@@ -59,6 +59,10 @@ namespace argos {
 
       void ShadeCellBiased();
 
+      void UnshadeCellUniform();
+
+      void UnshadeCellBiased();
+
    private:
       /* loop function configuration */
       std::array<UInt32, 2> m_arrGridLayout;
