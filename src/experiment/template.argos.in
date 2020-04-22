@@ -4,7 +4,7 @@
   <!-- General configuration -->
   <framework>
     <system threads="0" />
-    <experiment length="1000" ticks_per_second="5" random_seed="0" />
+    <experiment length="750" ticks_per_second="5" random_seed="0" />
   </framework>
 
   <!-- Arena configuration -->
@@ -75,7 +75,10 @@
         <pipuck_rangefinders implementation="default" show_rays="false" />
         <wifi implementation="default" show_rays="true" />
       </sensors>
-      <params script="@CMAKE_BINARY_DIR@/experiment/pipuck.lua" />
+      <params script="@CMAKE_BINARY_DIR@/experiment/pipuck.lua"
+              accumulator_length="100"
+              target_density="0.2"
+              ttl="3" />
     </lua_controller>
   </controllers>
 
@@ -92,14 +95,15 @@
               every second (the limit is imposed on how many blocks have been placed in the last second).
   -->
   <loop_functions library="@CMAKE_BINARY_DIR@/loop_functions/libdta_loop_functions"
-                  label="dta_loop_functions" >
+                  label="dta_loop_functions"
+                  output="data.csv" >
     <parameters grid_layout="50,50"
                 shading_distribution="biased"
                 initial_shading_ratio="0"
                 enable_foraging="true"
-                mean_foraging_duration_initial="10"
+                mean_foraging_duration_initial="1"
                 mean_foraging_duration_gradient="0"
-                construction_limit="0"/>
+                construction_limit="5"/>
     <robots>
       <pipuck id="pipuck0" controller="pipuck" />
       <pipuck id="pipuck1" controller="pipuck" />

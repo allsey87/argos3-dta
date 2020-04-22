@@ -5,14 +5,13 @@ function init()
    if type(robot.random.bernoulli()) ~= "boolean" then error("Please upgrade and reinstall ARGoS") end
    --[[ constants ]]--
    constants = {
-      target_density = 0.2,
-      confidence_coefficient = 0.05,
-      ttl = 3,
+      accumulator_length = tonumber(robot.params.accumulator_length),
+      target_density = tonumber(robot.params.target_density),
+      ttl = tonumber(robot.params.ttl),
    }
    --[[ accumulator ]]--
    accumulator = {
       current_index = 1,
-      length = 250,
       samples = {},
       sum = 0,
    }
@@ -71,7 +70,7 @@ function step()
          accumulator.sum = accumulator.sum + value
       end
       -- update index
-      if accumulator.current_index < accumulator.length then
+      if accumulator.current_index < constants.accumulator_length then
          accumulator.current_index = accumulator.current_index + 1
       else
          accumulator.current_index = 1
@@ -127,7 +126,7 @@ function step()
          total_sum = total_sum + other_robot_data.sum
       end
    end
-   if total_samples > 5 then
+   if #accumulator.samples > constants.ttl then
       local estimate = total_sum / total_samples
       --[[ determine whether or not we should switch to foraging ]]--
       if constants.target_density > estimate then
