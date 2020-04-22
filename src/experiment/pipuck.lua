@@ -6,6 +6,7 @@ function init()
    --[[ constants ]]--
    constants = {
       accumulator_length = tonumber(robot.params.accumulator_length),
+      confidence = tonumber(robot.params.confidence),
       target_density = tonumber(robot.params.target_density),
       ttl = tonumber(robot.params.ttl),
    }
@@ -134,7 +135,7 @@ function step()
       --[[ determine whether or not we should switch to foraging ]]--
       if constants.target_density > estimate then
          local probablity = math.min(1.0, (constants.target_density - estimate))
-         if robot.random.bernoulli(probablity) then
+         if robot.random.bernoulli(probablity * constants.confidence) then
             robot.debug.set_task("foraging")
          end
       end

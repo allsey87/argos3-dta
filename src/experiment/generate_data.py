@@ -34,10 +34,6 @@ class ARGoSJob(threading.Thread):
       super().__init__()
       
    def run(self):
-      with terminal_lock:
-         print('starting job: %s (seed = %d)' % (self.desc, self.seed))
-         print('  command: argos3 -c %s' % self.config_file.name)
-         print('  output file: %s' % self.output_file.name)
       subprocess.run(['argos3', '-c', self.config_file.name], capture_output=True)
       data = pandas.read_csv(self.output_file)
       data.insert(0, 'seed', self.seed)
@@ -53,10 +49,17 @@ class ARGoSJob(threading.Thread):
 
 # run the argos jobs in parallel
 def run_argos_jobs(jobs, threads):
+   total_jobs = len(jobs)
+   current_job = 0
    active_jobs = {}
    for thread in range(0, threads):
       if jobs:
          active_jobs[thread] = jobs.pop()
+         current_job += 1
+         with terminal_lock:
+            print('starting job (%d/%d): %s (seed = %d)' % (current_job, total_jobs, active_jobs[thread].desc, active_jobs[thread].seed))
+            print('  command: argos3 -c %s' % active_jobs[thread].config_file.name)
+            print('  output file: %s' % active_jobs[thread].output_file.name)
          active_jobs[thread].start()
          sleep(0.1)
    while active_jobs:
@@ -66,6 +69,11 @@ def run_argos_jobs(jobs, threads):
          else:
             if jobs:
                active_jobs[thread] = jobs.pop()
+               current_job += 1
+               with terminal_lock:
+                  print('starting job (%d/%d): %s (seed = %d)' % (current_job, total_jobs, active_jobs[thread].desc, active_jobs[thread].seed))
+                  print('  command: argos3 -c %s' % active_jobs[thread].config_file.name)
+                  print('  output file: %s' % active_jobs[thread].output_file.name)
                active_jobs[thread].start()
                sleep(0.1)
             else:
@@ -98,30 +106,31 @@ if visualization.find('./qt-opengl') is not None:
 
 # set the default loop function parameters
 parameters.attrib['enable_foraging'] = 'true'
-parameters.attrib['mean_foraging_duration_initial'] = '1'
 parameters.attrib['mean_foraging_duration_gradient'] = '0'
-parameters.attrib['construction_limit'] = '5'
 parameters.attrib['shading_distribution'] = 'biased'
 
 # experiment parameters
-experiment.attrib['length'] = '750'
+experiment.attrib['length'] = '1'
 
 # pipuck controller parameters
 pipuck_params = config.find('./controllers/lua_controller/params')
+pipuck_params.attrib['ttl'] = '4'
+pipuck_params.attrib['accumulator_length'] = '100'
 pipuck_wifi_actuator = config.find('./controllers/lua_controller/actuators/wifi')
+pipuck_wifi_actuator.attrib['range'] = '1'
 
-for wifi_range in ['1']:
-   pipuck_wifi_actuator.attrib['range'] = wifi_range
-   for ttl_value in ['4']:
-      pipuck_params.attrib['ttl'] = ttl_value
-      for acc_len in ['100']:
-         pipuck_params.attrib['accumulator_length'] = acc_len
+for mean_foraging_duration_initial in ['5','10','20','50']:
+   parameters.attrib['mean_foraging_duration_initial'] = mean_foraging_duration_initial
+   for construction_limit in ['5','10','20','50']:
+      parameters.attrib['construction_limit'] = construction_limit
+      for confidence in ['1.0', '0.5', '0.2', '0.1']:
+         pipuck_params.attrib['confidence'] = confidence
          for target_density in ['0.2', '0.3', '0.4']:
             pipuck_params.attrib['target_density'] = target_density
-            dataset = create_dataset('wr%s_ttl%s_al%s_td%s' % (wifi_range, ttl_value, acc_len, target_density))
+            dataset = create_dataset('mfdi%s_cl%s_cf%s_td%s' % (mean_foraging_duration_initial, construction_limit, confidence, target_density))
             for run in range(0,5):
                seed = run + 1
-               desc = ('[wifi range: %s, ttl: %s, accumulator length: %s, target density: %s]' % (wifi_range, ttl_value, acc_len, target_density))
+               desc = ('[mean foraging duration: %s, construction limit: %s, confidence: %s, target density: %s]' % (mean_foraging_duration_initial, construction_limit, confidence, target_density))
                job = ARGoSJob(desc, config, seed, dataset)
                jobs.append(job)
 

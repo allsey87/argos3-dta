@@ -4,7 +4,7 @@
   <!-- General configuration -->
   <framework>
     <system threads="0" />
-    <experiment length="750" ticks_per_second="5" random_seed="0" />
+    <experiment length="1000" ticks_per_second="5" random_seed="0" />
   </framework>
 
   <!-- Arena configuration -->
@@ -78,7 +78,8 @@
       <params script="@CMAKE_BINARY_DIR@/experiment/pipuck.lua"
               accumulator_length="100"
               target_density="0.2"
-              ttl="3" />
+              confidence="1"
+              ttl="4" />
     </lua_controller>
   </controllers>
 
