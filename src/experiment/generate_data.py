@@ -110,19 +110,19 @@ experiment.attrib['length'] = '750'
 pipuck_params = config.find('./controllers/lua_controller/params')
 pipuck_wifi_actuator = config.find('./controllers/lua_controller/actuators/wifi')
 
-for wifi_range in ['0.75', '1']:
+for wifi_range in ['1']:
    pipuck_wifi_actuator.attrib['range'] = wifi_range
-   for ttl_value in ['3','4']:
+   for ttl_value in ['4']:
       pipuck_params.attrib['ttl'] = ttl_value
-      for acc_len in ['100','200']:
+      for acc_len in ['100']:
          pipuck_params.attrib['accumulator_length'] = acc_len
-         for target_density in ['0.2', '0.3']:
+         for target_density in ['0.2', '0.3', '0.4']:
             pipuck_params.attrib['target_density'] = target_density
             dataset = create_dataset('wr%s_ttl%s_al%s_td%s' % (wifi_range, ttl_value, acc_len, target_density))
             for run in range(0,5):
                seed = run + 1
                desc = ('[wifi range: %s, ttl: %s, accumulator length: %s, target density: %s]' % (wifi_range, ttl_value, acc_len, target_density))
-               job = ARGoSJob('biased, seed = %s' % seed, config, seed, dataset)
+               job = ARGoSJob(desc, config, seed, dataset)
                jobs.append(job)
 
 # execute all jobs

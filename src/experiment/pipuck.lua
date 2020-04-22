@@ -118,15 +118,18 @@ function step()
       end
    end
    --[[ estimate the tile density ]]--
-   local total_samples = #accumulator.samples
    local total_sum = accumulator.sum
+   local total_samples = #accumulator.samples
+   local total_neighbors = 0
    for other_robot, other_robot_data in pairs(database) do
       if other_robot_data.ttl > 0 then
-         total_samples = total_samples + other_robot_data.samples
-         total_sum = total_sum + other_robot_data.sum
+         local hop_distance_factor = (constants.ttl - other_robot_data.ttl)
+         total_sum = total_sum + other_robot_data.sum * hop_distance_factor
+         total_samples = total_samples + other_robot_data.samples * hop_distance_factor
+         total_neighbors = total_neighbors + 1
       end
    end
-   if #accumulator.samples > constants.ttl then
+   if total_samples > 0 and total_neighbors > constants.ttl then
       local estimate = total_sum / total_samples
       --[[ determine whether or not we should switch to foraging ]]--
       if constants.target_density > estimate then
