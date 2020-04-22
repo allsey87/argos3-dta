@@ -51,9 +51,9 @@ class ARGoSJob(threading.Thread):
                print('writing data to %s.hdf' % self.dataset['name'])
             self.dataset['data'].to_hdf('%s.hdf' % self.dataset['name'], 'table', append=False)
 
+# run the argos jobs in parallel
 def run_argos_jobs(jobs, threads):
    active_jobs = {}
-   # transfer thread jobs to the active job dictionary and start them
    for thread in range(0, threads):
       if jobs:
          active_jobs[thread] = jobs.pop()
@@ -72,6 +72,15 @@ def run_argos_jobs(jobs, threads):
                active_jobs.pop(thread)
                break;
 
+# create a new dataset
+def create_dataset(name):
+   return {
+      'name': name,
+      'lock': threading.Lock(),
+      'data': pandas.DataFrame(),
+      'jobs': 0,
+   }
+
 # list of jobs for ARGoS
 jobs = []
 
@@ -82,45 +91,39 @@ experiment = framework.find('./experiment')
 visualization = config.find('./visualization')
 loop_functions = config.find('./loop_functions')
 parameters = loop_functions.find('./parameters')
+
 # remove the qtopengl visualization
 if visualization.find('./qt-opengl') is not None:
    visualization.remove(visualization.find('./qt-opengl'))
 
-# set the loop function parameters
-parameters.attrib['enable_foraging'] = 'false'
-parameters.attrib['mean_foraging_duration_initial'] = '0'
+# set the default loop function parameters
+parameters.attrib['enable_foraging'] = 'true'
+parameters.attrib['mean_foraging_duration_initial'] = '1'
 parameters.attrib['mean_foraging_duration_gradient'] = '0'
-parameters.attrib['construction_limit'] = '0'
+parameters.attrib['construction_limit'] = '5'
+parameters.attrib['shading_distribution'] = 'biased'
 
 # experiment parameters
-experiment.attrib['length'] = '960'
+experiment.attrib['length'] = '750'
 
-# define jobs
-biased_dataset = {
-   'name': 'biased',
-   'lock': threading.Lock(),
-   'data': pandas.DataFrame(),
-   'jobs': 0,
-}
-for run in range(0,5):
-   seed = run + 1
-   parameters.attrib['shading_distribution'] = 'biased'
-   # desc, config, seed, dataset
-   job = ARGoSJob('biased, seed = %s' % seed, config, seed, biased_dataset)
-   jobs.append(job)
+# pipuck controller parameters
+pipuck_params = config.find('./controllers/lua_controller/params')
+pipuck_wifi_actuator = config.find('./controllers/lua_controller/actuators/wifi')
 
-uniform_dataset = {
-   'name': 'uniform',
-   'lock': threading.Lock(),
-   'data': pandas.DataFrame(),
-   'jobs': 0,
-}
-for run in range(0,5):
-   seed = run + 1
-   parameters.attrib['shading_distribution'] = 'uniform'
-   # desc, config, seed, dataset
-   job = ARGoSJob('biased, seed = %s' % seed, config, seed, uniform_dataset)
-   jobs.append(job)
+for wifi_range in ['0.75', '1']:
+   pipuck_wifi_actuator.attrib['range'] = wifi_range
+   for ttl_value in ['3','4']:
+      pipuck_params.attrib['ttl'] = ttl_value
+      for acc_len in ['100','200']:
+         pipuck_params.attrib['accumulator_length'] = acc_len
+         for target_density in ['0.2', '0.3']:
+            pipuck_params.attrib['target_density'] = target_density
+            dataset = create_dataset('wr%s_ttl%s_al%s_td%s' % (wifi_range, ttl_value, acc_len, target_density))
+            for run in range(0,5):
+               seed = run + 1
+               desc = ('[wifi range: %s, ttl: %s, accumulator length: %s, target density: %s]' % (wifi_range, ttl_value, acc_len, target_density))
+               job = ARGoSJob('biased, seed = %s' % seed, config, seed, dataset)
+               jobs.append(job)
 
 # execute all jobs
 run_argos_jobs(jobs, 8)
